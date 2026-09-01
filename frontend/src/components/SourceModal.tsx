@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SourceReference } from '../types';
-import { X, Check, Copy, Sparkles, BookOpen, Target } from 'lucide-react';
+import { X, Check, Copy, BookOpen } from 'lucide-react';
 
 interface SourceModalProps {
   source: SourceReference | null;
@@ -19,40 +19,35 @@ export const SourceModal: React.FC<SourceModalProps> = ({ source, onClose }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#0b101b] border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 bg-[#090d16]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-[#1f1f21] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-zinc-200">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#1a1a1c]">
           <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <BookOpen className="w-5 h-5" />
-            </div>
+            <BookOpen className="w-5 h-5 text-coral-400" />
             <div>
-              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                 {source.filename}
                 {source.page_number && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-medium border border-slate-700">
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/[0.08] text-zinc-300 font-mono">
                     Página {source.page_number}
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">
-                Identificador: <span className="text-slate-300">{source.doc_id}_c{source.chunk_index}</span>
-              </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-1.5">
             <button
               onClick={handleCopy}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition"
-              title="Copiar trecho recuperado"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition"
+              title="Copiar trecho"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition"
               title="Fechar"
             >
               <X className="w-4 h-4" />
@@ -60,36 +55,32 @@ export const SourceModal: React.FC<SourceModalProps> = ({ source, onClose }) => 
           </div>
         </div>
 
-        {/* Scores & Pipeline Breakdown */}
-        <div className="flex flex-wrap items-center gap-2 px-6 py-3 bg-[#080c14] border-b border-slate-800/80 text-xs">
-          {source.rerank_score !== null && source.rerank_score !== undefined ? (
-            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-emerald-950/30 border border-emerald-800/50 text-emerald-300 font-mono text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Score Reranker: <strong>{(source.rerank_score * 100).toFixed(1)}%</strong></span>
-            </div>
-          ) : null}
-
-          {source.score !== null && source.score !== undefined ? (
-            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-indigo-950/30 border border-indigo-800/50 text-indigo-300 font-mono text-[11px]">
-              <Target className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Similaridade Vetorial: <strong>{(source.score * 100).toFixed(1)}%</strong></span>
-            </div>
-          ) : null}
+        {/* Scores */}
+        <div className="flex items-center gap-2 px-6 py-2.5 bg-[#171719] border-b border-white/[0.06] text-xs font-mono">
+          {source.rerank_score !== null && source.rerank_score !== undefined && (
+            <span className="px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-800/40">
+              Reranker: {(source.rerank_score * 100).toFixed(1)}%
+            </span>
+          )}
+          {source.score !== null && source.score !== undefined && (
+            <span className="px-2 py-0.5 rounded bg-white/[0.06] text-zinc-300">
+              Similaridade: {(source.score * 100).toFixed(1)}%
+            </span>
+          )}
         </div>
 
-        {/* Content Snippet */}
+        {/* Snippet Content */}
         <div className="p-6 overflow-y-auto flex-1">
-          <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800/80 font-['JetBrains_Mono',monospace] text-xs text-slate-200 leading-relaxed whitespace-pre-wrap selection:bg-indigo-500/30">
+          <div className="p-4 rounded-xl bg-[#141416] border border-white/[0.08] font-mono text-[13px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
             {source.snippet}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-800/80 bg-[#090d16] flex items-center justify-between text-xs text-slate-500">
-          <span className="font-mono text-[11px]">Fonte entregue ao prompt RAG da LLM</span>
+        <div className="px-6 py-3 border-t border-white/[0.08] bg-[#1a1a1c] flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition text-xs"
+            className="px-4 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] text-white text-xs font-medium transition"
           >
             Fechar
           </button>

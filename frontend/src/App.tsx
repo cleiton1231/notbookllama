@@ -6,13 +6,11 @@ import { SourceModal } from './components/SourceModal';
 import { DocumentMetadata, HealthResponse, Message, SourceReference } from './types';
 import { fetchDocuments, fetchHealth, deleteDocument, streamChat } from './services/api';
 import {
-  Send,
+  ArrowUp,
   Square,
   Sparkles,
-  Trash2,
-  Brain,
-  MessageSquare,
-  ShieldCheck,
+  RotateCcw,
+  BookOpen,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -32,21 +30,18 @@ export const App: React.FC = () => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isUserScrolledUp = useRef(false);
 
-  // Carregar documentos e status inicial
   useEffect(() => {
     loadHealth();
     loadDocuments();
   }, []);
 
-  // Monitorar rolagem manual do usuário
   const handleScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    isUserScrolledUp.current = distanceFromBottom > 120;
+    isUserScrolledUp.current = distanceFromBottom > 100;
   };
 
-  // Auto-scroll inteligente (só rola se o usuário estiver no fim da conversa)
   useEffect(() => {
     if (!isUserScrolledUp.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,7 +54,7 @@ export const App: React.FC = () => {
       const data = await fetchHealth();
       setHealth(data);
     } catch (e) {
-      console.error('Erro ao verificar saúde dos endpoints:', e);
+      console.error('Erro ao verificar status:', e);
     } finally {
       setLoadingHealth(false);
     }
@@ -103,6 +98,14 @@ export const App: React.FC = () => {
   const handleClearDocSelection = useCallback(() => {
     setSelectedDocIds([]);
   }, []);
+
+  const handleNewChat = useCallback(() => {
+    if (messages.length > 0) {
+      if (confirm('Iniciar uma nova conversa e limpar o histórico atual?')) {
+        setMessages([]);
+      }
+    }
+  }, [messages.length]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || input.trim();
@@ -184,12 +187,6 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleClearChat = () => {
-    if (confirm('Deseja limpar todo o histórico da conversa atual?')) {
-      setMessages([]);
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -198,14 +195,14 @@ export const App: React.FC = () => {
   };
 
   const suggestions = [
-    'Quais são as principais conclusões dos documentos?',
-    'Resuma os conceitos e requisitos técnicos apresentados.',
-    'Quais são as diferenças e comparações destacadas?',
-    'Liste os exemplos práticos de código citados.',
+    'Quais são os pontos e conclusões centrais do documento?',
+    'Explique as diferenças e comparações destacadas no texto.',
+    'Quais são os requisitos técnicos e definições apresentadas?',
+    'Resuma os exemplos práticos e códigos fornecidos.',
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#070a10]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#191919] text-[#ececec]">
       {/* Sidebar Lateral */}
       <Sidebar
         documents={documents}
@@ -215,76 +212,73 @@ export const App: React.FC = () => {
         onClearDocSelection={handleClearDocSelection}
         onDeleteDoc={handleDeleteDoc}
         onUploadSuccess={handleUploadSuccess}
+        onNewChat={handleNewChat}
         useRerank={useRerank}
         onToggleRerank={setUseRerank}
       />
 
-      {/* Área Principal de Trabalho */}
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-gradient-to-b from-[#090d16] via-[#070a10] to-[#05070c]">
-        {/* Status Superior dos Serviços */}
-        <StatusIndicator health={health} loading={loadingHealth} onRefresh={loadHealth} />
-
-        {/* Barra Superior do Chat */}
-        <div className="px-6 py-3 border-b border-slate-800/80 bg-[#080c14]/80 flex items-center justify-between backdrop-blur-sm">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-              <MessageSquare className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-slate-200">Área de Pesquisa & Chat</h2>
-              <p className="text-[10px] text-slate-400 font-mono">
-                {selectedDocIds.length > 0
-                  ? `Consultando ${selectedDocIds.length} documento(s) selecionado(s)`
-                  : 'Consultando todos os documentos da base'}
-              </p>
-            </div>
+      {/* Área Principal de Chat */}
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-[#191919] relative">
+        {/* Top Minimal Bar */}
+        <header className="h-14 px-6 border-b border-white/[0.06] flex items-center justify-between shrink-0 bg-[#191919]/90 backdrop-blur-md z-10">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-zinc-300">
+              {selectedDocIds.length > 0
+                ? `${selectedDocIds.length} documento(s) selecionado(s)`
+                : 'Todos os documentos'}
+            </span>
           </div>
 
-          {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-rose-300 hover:bg-slate-800/60 rounded-lg border border-slate-800 transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Limpar Histórico</span>
-            </button>
-          )}
-        </div>
+          <div className="flex items-center space-x-4">
+            <StatusIndicator health={health} loading={loadingHealth} onRefresh={loadHealth} />
 
-        {/* Lista de Mensagens do Chat */}
+            {messages.length > 0 && (
+              <button
+                onClick={handleNewChat}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition"
+                title="Limpar conversa"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Scrollable Messages Area */}
         <div
           ref={chatContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto pb-40"
         >
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center max-w-xl mx-auto px-4 text-center py-10">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-700/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4 shadow-[0_0_25px_rgba(99,102,241,0.15)]">
-                <Brain className="w-7 h-7" />
+            <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto px-6 text-center py-12">
+              <div className="w-12 h-12 rounded-2xl bg-[#da7756]/15 border border-[#da7756]/30 text-coral-400 flex items-center justify-center mb-6 shadow-sm">
+                <Sparkles className="w-6 h-6" />
               </div>
-              <h2 className="text-lg font-bold text-slate-100 tracking-tight mb-1.5">
-                DocMind AI Workstation
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-md mb-8">
-                Pesquise, cruze referências e extraia respostas precisas de PDFs, apostilas e notas com busca vetorial e reranking local.
+              <h1 className="text-2xl font-semibold text-white tracking-tight mb-2">
+                Como posso ajudar com seus documentos?
+              </h1>
+              <p className="text-sm text-zinc-400 max-w-md mb-10 leading-relaxed">
+                Faça perguntas, compare dados ou extraia explicações técnicas diretamente da sua base local.
               </p>
 
-              {/* Sugestões de Perguntas */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
+              {/* Suggestions Grid */}
+              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
                 {suggestions.map((sug, i) => (
                   <button
                     key={i}
                     onClick={() => handleSendMessage(sug)}
-                    className="p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/40 text-xs text-slate-300 hover:text-white transition flex items-start space-x-2.5 group shadow-sm"
+                    className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-sm text-zinc-300 hover:text-white transition leading-snug group"
                   >
-                    <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                    <span className="leading-snug">{sug}</span>
+                    <span className="text-zinc-400 group-hover:text-coral-400 transition-colors">
+                      {sug}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-slate-800/30">
+            <div className="divide-y divide-white/[0.04]">
               {messages.map((msg) => (
                 <ChatMessage key={msg.id} message={msg} onOpenSource={setActiveSource} />
               ))}
@@ -293,51 +287,59 @@ export const App: React.FC = () => {
           )}
         </div>
 
-        {/* Barra de Input / Envio */}
-        <div className="p-4 border-t border-slate-800/80 bg-[#080c14]/90 backdrop-blur-md">
-          <div className="max-w-4xl mx-auto relative">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                documents.length === 0
-                  ? 'Faça o upload de um documento na barra lateral para começar...'
-                  : 'Faça uma pergunta sobre a sua base local (Enter para enviar, Shift+Enter para quebra)...'
-              }
-              rows={2}
-              className="w-full bg-slate-950/90 border border-slate-800/80 rounded-xl pl-4 pr-24 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/40 resize-none transition shadow-inner font-sans"
-            />
+        {/* Floating Input Dock (Claude / Gemini style) */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#191919] via-[#191919]/90 to-transparent pointer-events-none">
+          <div className="max-w-3xl mx-auto pointer-events-auto">
+            <div className="relative bg-[#222222] border border-white/10 rounded-2xl shadow-2xl focus-within:border-white/20 transition-all p-3">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  documents.length === 0
+                    ? 'Adicione um documento na barra lateral para começar...'
+                    : 'Pergunte qualquer coisa sobre os documentos...'
+                }
+                rows={1}
+                className="w-full bg-transparent text-[15px] text-white placeholder-zinc-500 focus:outline-none resize-none max-h-48 overflow-y-auto px-1 py-1"
+                style={{ minHeight: '28px' }}
+              />
 
-            <div className="absolute right-3 bottom-4 flex items-center space-x-2">
-              {isGenerating ? (
-                <button
-                  onClick={handleStopGeneration}
-                  className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md transition"
-                >
-                  <Square className="w-3 h-3 fill-current" />
-                  <span>Parar</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleSendMessage()}
-                  disabled={!input.trim()}
-                  className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white text-xs font-semibold shadow-[0_0_12px_rgba(99,102,241,0.3)] transition"
-                >
-                  <span>Enviar</span>
-                  <Send className="w-3 h-3" />
-                </button>
-              )}
+              <div className="flex items-center justify-between pt-2 mt-1 border-t border-white/[0.04]">
+                <div className="flex items-center space-x-2 text-[11px] text-zinc-500 font-mono">
+                  <span className="flex items-center gap-1">
+                    <BookOpen className="w-3 h-3 text-coral-400" />
+                    <span>DocMind Local RAG</span>
+                  </span>
+                </div>
+
+                <div>
+                  {isGenerating ? (
+                    <button
+                      onClick={handleStopGeneration}
+                      className="p-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm"
+                      title="Parar geração"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSendMessage()}
+                      disabled={!input.trim()}
+                      className="p-1.5 rounded-xl bg-[#da7756] hover:bg-[#c66545] disabled:opacity-30 disabled:hover:bg-[#da7756] text-white transition shadow-sm"
+                      title="Enviar pergunta"
+                    >
+                      <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="max-w-4xl mx-auto mt-2 flex items-center justify-between text-[11px] text-slate-500 font-mono px-1">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>Privacidade Total • RAG Local 2-Estágios</span>
-            </span>
-            <span>DocMind • llama.cpp Engine</span>
+            <p className="text-center text-[11px] text-zinc-500 mt-2 font-sans">
+              DocMind processa documentos de forma 100% privada e local com llama.cpp.
+            </p>
           </div>
         </div>
       </main>

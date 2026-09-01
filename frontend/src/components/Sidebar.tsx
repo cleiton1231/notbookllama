@@ -2,17 +2,15 @@ import React, { useState } from 'react';
 import { DocumentMetadata } from '../types';
 import { FileUpload } from './FileUpload';
 import {
-  Brain,
   FileText,
   Trash2,
   CheckSquare,
   Square,
   Search,
-  Database,
-  Layers,
-  FileCode,
-  ShieldCheck,
-  HardDrive
+  Plus,
+  SlidersHorizontal,
+  FolderOpen,
+  Sparkles
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +21,7 @@ interface SidebarProps {
   onClearDocSelection: () => void;
   onDeleteDoc: (docId: string) => void;
   onUploadSuccess: (doc: DocumentMetadata) => void;
+  onNewChat: () => void;
   useRerank: boolean;
   onToggleRerank: (enabled: boolean) => void;
 }
@@ -35,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClearDocSelection,
   onDeleteDoc,
   onUploadSuccess,
+  onNewChat,
   useRerank,
   onToggleRerank,
 }) => {
@@ -51,20 +51,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const getDocIcon = (type: string) => {
-    switch (type) {
-      case 'pdf':
-        return <FileText className="w-4 h-4 text-rose-400 shrink-0" />;
-      case 'markdown':
-        return <FileCode className="w-4 h-4 text-sky-400 shrink-0" />;
-      default:
-        return <FileText className="w-4 h-4 text-indigo-400 shrink-0" />;
-    }
-  };
-
   const handleDelete = async (docId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm('Deseja realmente remover este documento e seus vetores indexados da base local?')) {
+    if (confirm('Deseja remover este documento da base?')) {
       setDeletingId(docId);
       try {
         await onDeleteDoc(docId);
@@ -77,43 +66,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isAllSelected = documents.length > 0 && selectedDocIds.length === documents.length;
 
   return (
-    <aside className="w-80 h-full bg-[#080c14] border-r border-slate-800/80 flex flex-col shrink-0 select-none">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between bg-[#080c14]">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.3)]">
-            <Brain className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-1.5">
-              <h1 className="font-bold text-slate-100 text-sm tracking-tight">DocMind</h1>
-              <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                v1.0
-              </span>
+    <aside className="w-72 h-full bg-[#141414] border-r border-white/[0.08] flex flex-col shrink-0 select-none text-zinc-300">
+      {/* App Header & New Chat */}
+      <div className="p-4 border-b border-white/[0.06] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[#da7756] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              D
             </div>
-            <p className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              <span>100% Local RAG</span>
-            </p>
+            <span className="font-semibold text-white tracking-tight text-base">DocMind</span>
           </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-400">
+            Local RAG
+          </span>
         </div>
+
+        {/* New Chat Button */}
+        <button
+          onClick={onNewChat}
+          className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white font-medium text-xs transition border border-white/[0.08]"
+        >
+          <Plus className="w-4 h-4 text-coral-400" />
+          <span>Nova Conversa</span>
+        </button>
       </div>
 
-      {/* Upload Zone */}
-      <div className="p-3 border-b border-slate-800/60 bg-slate-950/30">
+      {/* Upload Drop Area */}
+      <div className="p-3 border-b border-white/[0.06]">
         <FileUpload onUploadSuccess={onUploadSuccess} />
       </div>
 
-      {/* RAG 2-Stage Rerank Control */}
-      <div className="px-4 py-3 border-b border-slate-800/60 bg-slate-900/30 flex items-center justify-between">
+      {/* Reranker Config */}
+      <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <div className={`p-1.5 rounded-lg border ${useRerank ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-            <Layers className="w-3.5 h-3.5" />
-          </div>
+          <SlidersHorizontal className="w-3.5 h-3.5 text-coral-400" />
           <div>
-            <p className="text-xs font-semibold text-slate-200">Reranker (2 Estágios)</p>
-            <p className="text-[10px] text-slate-400 font-mono">
-              {useRerank ? 'Cross-Encoder Ativo (:8082)' : 'Busca Vetorial Pura'}
+            <p className="text-xs font-medium text-zinc-200">Reranker 2-Estágios</p>
+            <p className="text-[10px] text-zinc-500 font-mono">
+              {useRerank ? 'Cross-Encoder (:8082)' : 'Cosseno direto'}
             </p>
           </div>
         </div>
@@ -121,60 +111,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           onClick={() => onToggleRerank(!useRerank)}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            useRerank ? 'bg-indigo-600 shadow-[0_0_10px_rgba(99,102,241,0.5)]' : 'bg-slate-700'
+          className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+            useRerank ? 'bg-coral-500' : 'bg-zinc-700'
           }`}
-          title={useRerank ? 'Desativar Reranker' : 'Ativar Reranker de 2 Estágios'}
+          title={useRerank ? 'Desativar Reranker' : 'Ativar Reranker'}
         >
           <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
               useRerank ? 'translate-x-4' : 'translate-x-0'
             }`}
           />
         </button>
       </div>
 
-      {/* Search and Selection Tools */}
-      <div className="p-3 border-b border-slate-800/60 space-y-2 bg-[#090d16]/50">
+      {/* Search & Document Actions */}
+      <div className="p-3 space-y-2 border-b border-white/[0.06]">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-500" />
           <input
             type="text"
-            placeholder="Filtrar base de documentos..."
+            placeholder="Buscar documentos..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-950/70 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/80 focus:ring-1 focus:ring-indigo-500/30 transition"
+            className="w-full bg-[#1c1c1e] border border-white/[0.08] rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-coral-500/60 transition"
           />
         </div>
 
         {documents.length > 0 && (
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+          <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1 pt-0.5">
             <button
               onClick={isAllSelected ? onClearDocSelection : onSelectAllDocs}
-              className="flex items-center space-x-1.5 hover:text-indigo-300 transition"
+              className="flex items-center space-x-1.5 hover:text-white transition"
             >
               {isAllSelected ? (
-                <CheckSquare className="w-3.5 h-3.5 text-indigo-400" />
+                <CheckSquare className="w-3.5 h-3.5 text-coral-400" />
               ) : (
-                <Square className="w-3.5 h-3.5 text-slate-500" />
+                <Square className="w-3.5 h-3.5 text-zinc-500" />
               )}
               <span>{isAllSelected ? 'Todos marcados' : 'Marcar todos'}</span>
             </button>
-            <span className="font-mono text-slate-500">{documents.length} doc(s)</span>
+            <span className="font-mono text-zinc-500 text-[10px]">{documents.length} arquivos</span>
           </div>
         )}
       </div>
 
-      {/* Documents List */}
+      {/* Document List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {filteredDocs.length === 0 ? (
-          <div className="text-center py-10 px-4 text-slate-500 text-xs">
-            <HardDrive className="w-8 h-8 text-slate-700 mx-auto mb-2 stroke-[1.5]" />
-            <p className="font-medium text-slate-400">
-              {searchTerm ? 'Nenhum resultado para o filtro.' : 'Nenhum documento indexado.'}
+          <div className="text-center py-10 px-4 text-zinc-500 text-xs">
+            <FolderOpen className="w-8 h-8 text-zinc-600 mx-auto mb-2 stroke-[1.5]" />
+            <p className="font-medium text-zinc-400">
+              {searchTerm ? 'Nenhum documento encontrado.' : 'Nenhum documento.'}
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Envie PDFs ou textos para começar a pesquisar.
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Envie PDFs ou textos para pesquisar.
             </p>
           </div>
         ) : (
@@ -186,28 +176,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div
                 key={doc.doc_id}
                 onClick={() => onToggleDoc(doc.doc_id)}
-                className={`group relative flex items-start space-x-2.5 p-2.5 rounded-xl text-xs cursor-pointer transition-all border ${
+                className={`group relative flex items-start space-x-2.5 p-2.5 rounded-xl text-xs cursor-pointer transition-all ${
                   isSelected
-                    ? 'bg-indigo-600/10 border-indigo-500/40 text-slate-100 shadow-sm'
-                    : 'bg-slate-900/30 hover:bg-slate-900/80 border-slate-800/40 hover:border-slate-700/60 text-slate-300'
-                } ${isDeleting ? 'opacity-40 pointer-events-none' : ''}`}
+                    ? 'bg-white/[0.08] text-white'
+                    : 'hover:bg-white/[0.04] text-zinc-400 hover:text-zinc-200'
+                } ${isDeleting ? 'opacity-30 pointer-events-none' : ''}`}
               >
                 <div className="pt-0.5 shrink-0">
                   {isSelected ? (
-                    <CheckSquare className="w-3.5 h-3.5 text-indigo-400" />
+                    <CheckSquare className="w-3.5 h-3.5 text-coral-400" />
                   ) : (
-                    <Square className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400" />
+                    <Square className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-400" />
                   )}
                 </div>
 
-                <div className="shrink-0 pt-0.5">{getDocIcon(doc.file_type)}</div>
+                <FileText className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate text-slate-200 text-xs" title={doc.filename}>
+                  <p className="font-medium truncate text-zinc-200 text-xs" title={doc.filename}>
                     {doc.filename}
                   </p>
-                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5 font-mono">
-                    <span className="text-indigo-400 font-medium">{doc.total_chunks} chunks</span>
+                  <div className="flex items-center space-x-2 text-[10px] text-zinc-500 mt-0.5 font-mono">
+                    <span className="text-coral-400/90">{doc.total_chunks} chunks</span>
                     <span>•</span>
                     <span>{formatFileSize(doc.file_size)}</span>
                   </div>
@@ -216,8 +206,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handleDelete(doc.doc_id, e)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition shrink-0"
-                  title="Excluir documento do ChromaDB"
+                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-white/10 rounded-md transition shrink-0"
+                  title="Excluir documento"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -228,12 +218,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer Info */}
-      <div className="p-3 border-t border-slate-800/80 bg-slate-950/60 text-[11px] text-slate-400 flex items-center justify-between font-mono">
+      <div className="p-3 border-t border-white/[0.06] text-[11px] text-zinc-500 flex items-center justify-between font-mono">
         <span className="flex items-center gap-1.5">
-          <Database className="w-3.5 h-3.5 text-indigo-400" />
-          <span>ChromaDB VectorStore</span>
+          <Sparkles className="w-3 h-3 text-coral-400" />
+          <span>ChromaDB Vector Store</span>
         </span>
-        <span className="text-slate-500 text-[10px]">Lock thread-safe</span>
       </div>
     </aside>
   );

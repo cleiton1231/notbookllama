@@ -8,18 +8,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0a0d14',
-        surface: '#111726',
-        'surface-hover': '#1b233a',
-        border: '#1e293b',
-        primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
+        background: '#191919',
+        sidebar: '#141414',
+        card: '#222222',
+        input: '#202020',
+        'surface-hover': '#2a2a2a',
+        border: 'rgba(255, 255, 255, 0.08)',
+        coral: {
+          300: '#f0a38b',
+          400: '#e58b6e',
+          500: '#da7756',
+          600: '#c66545',
         },
-        accent: '#38bdf8',
+      },
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
     },
   },
