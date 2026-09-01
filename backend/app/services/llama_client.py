@@ -115,6 +115,7 @@ class LlamaClient:
 
         payload = {
             "messages": messages,
+            "reasoning_effort": "none",
             "temperature": temperature,
             "stream": True,
             "enable_thinking": False
