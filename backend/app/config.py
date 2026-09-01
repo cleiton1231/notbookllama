@@ -15,11 +15,11 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = str(BASE_DIR / "data" / "uploads")
 
     # Hiperparâmetros RAG
-    CHUNK_SIZE: int = 500
-    CHUNK_OVERLAP: int = 60
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 100
     TOP_K_RETRIEVAL: int = 16
-    TOP_K_RERANK: int = 5
-    MAX_CONTEXT_TOKENS: int = 3500
+    TOP_K_RERANK: int = 8
+    MAX_CONTEXT_TOKENS: int = 4000
 
     # Timeouts (segundos)
     CHAT_TIMEOUT: float = 120.0
