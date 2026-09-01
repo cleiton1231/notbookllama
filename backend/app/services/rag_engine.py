@@ -71,8 +71,15 @@ class RAGEngine:
                 rerank_results = await self.llama.rerank(request.message, doc_texts)
 
                 if rerank_results:
-                    # Rerank funcionou com sucesso
-                    for item in rerank_results[:top_k_final]:
+                    # Filtra por score de relevância mínima (ex: >= 0.05) para remover ruído
+                    min_score = settings.MIN_RELEVANCE_SCORE
+                    filtered_rerank = [item for item in rerank_results if item.get("relevance_score", 0.0) >= min_score]
+
+                    # Se todos caíram abaixo do corte, mantém pelo menos o top 1 com melhor score
+                    if not filtered_rerank and rerank_results:
+                        filtered_rerank = [rerank_results[0]]
+
+                    for item in filtered_rerank[:top_k_final]:
                         idx = item["index"]
                         score = item["relevance_score"]
                         chunk, sim_score = candidate_chunks[idx]

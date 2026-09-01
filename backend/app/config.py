@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 100
     TOP_K_RETRIEVAL: int = 24
     TOP_K_RERANK: int = 12
+    MIN_RELEVANCE_SCORE: float = 0.05
     MAX_CONTEXT_TOKENS: int = 6000
 
     # Segurança e CORS
