@@ -50,7 +50,7 @@
 }
 
 .markdown-content code {
-  @apply font-mono text-[13px] bg-white/10 text-[#f43f5e]/90 text-coral-400 px-1.5 py-0.5 rounded border border-white/10;
+  @apply font-mono text-[13px] bg-white/10 text-[#da7756] px-1.5 py-0.5 rounded border border-white/10;
 }
 
 .markdown-content pre {
@@ -74,7 +74,7 @@
 }
 
 .markdown-content blockquote {
-  @apply border-l-2 border-coral-500/60 pl-4 my-3 text-zinc-400 italic bg-white/[0.02] py-1 rounded-r-lg;
+  @apply border-l-2 border-[#da7756] pl-4 my-3 text-zinc-400 italic bg-white/[0.02] py-1 rounded-r-lg;
 }
 
 .markdown-content table {
@@ -98,5 +98,5 @@
 }
 
 .markdown-content a {
-  @apply text-coral-400 hover:text-coral-300 underline underline-offset-2;
+  @apply text-[#da7756] hover:underline underline-offset-2;
 }
