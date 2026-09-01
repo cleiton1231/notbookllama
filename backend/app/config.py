@@ -17,9 +17,9 @@ class Settings(BaseSettings):
     # Hiperparâmetros RAG
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 60
-    TOP_K_RETRIEVAL: int = 12
-    TOP_K_RERANK: int = 4
-    MAX_CONTEXT_TOKENS: int = 3000
+    TOP_K_RETRIEVAL: int = 16
+    TOP_K_RERANK: int = 5
+    MAX_CONTEXT_TOKENS: int = 3500
 
     # Timeouts (segundos)
     CHAT_TIMEOUT: float = 120.0
