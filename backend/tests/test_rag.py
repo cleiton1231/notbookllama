@@ -73,13 +73,12 @@ async def test_rag_rerank_fallback():
     # Mock do llama_client
     engine.llama.get_embeddings = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
     engine.llama.rerank = AsyncMock(return_value=None)  # Simula Reranker offline
-    engine.llama.stream_chat = AsyncMock()
-    
+
     async def dummy_stream(msgs, temperature=0.3):
         yield "Resposta baseada no "
         yield "documento."
-    
-    engine.llama.stream_chat.side_effect = dummy_stream
+
+    engine.llama.stream_chat = dummy_stream
 
     dummy_chunk = DocumentChunk(
         chunk_id="doc1_c0",

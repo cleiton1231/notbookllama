@@ -2,8 +2,14 @@ import asyncio
 import json
 import logging
 from typing import List, Optional, Tuple, Dict, Any
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+
+try:
+    import chromadb
+    from chromadb.config import Settings as ChromaSettings
+except ImportError:
+    chromadb = None
+    ChromaSettings = None
+
 from app.config import settings
 from app.schemas import DocumentChunk, DocumentMetadata
 
@@ -15,6 +21,13 @@ class VectorStore:
     _lock = asyncio.Lock()
 
     def __init__(self):
+        if chromadb is None:
+            logger.warning("ChromaDB não está instalado no ambiente Python atual. Instale com pip install chromadb.")
+            self.client = None
+            self.chunk_collection = None
+            self.doc_collection = None
+            return
+
         self.client = chromadb.PersistentClient(
             path=settings.CHROMA_PERSIST_DIR,
             settings=ChromaSettings(anonymized_telemetry=False, is_persistent=True)
