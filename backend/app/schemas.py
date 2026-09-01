@@ -63,6 +63,7 @@ class EndpointStatus(BaseModel):
     name: str
     url: str
     online: bool
+    latency_ms: Optional[int] = None
     details: Optional[str] = None
 
 

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     TOP_K_RERANK: int = 12
     MAX_CONTEXT_TOKENS: int = 6000
 
+    # Segurança e CORS
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
+    MAX_UPLOAD_SIZE_MB: int = 50
+    ALLOWED_EXTENSIONS: set = {".pdf", ".txt", ".md", ".markdown", ".csv", ".json"}
+
     # Timeouts (segundos)
     CHAT_TIMEOUT: float = 120.0
     EMBED_TIMEOUT: float = 30.0

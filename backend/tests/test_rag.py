@@ -15,6 +15,14 @@ def test_calculate_sha256():
     assert len(h1) == 64
 
 
+def test_sanitize_filename():
+    from app.services.document_parser import sanitize_filename
+    assert sanitize_filename("../../etc/passwd.pdf") == "passwd.pdf"
+    assert sanitize_filename("relatorio\x00malicioso.txt") == "relatoriomalicioso.txt"
+    assert sanitize_filename("..hidden.md") == "hidden.md"
+    assert sanitize_filename("normal_doc.pdf") == "normal_doc.pdf"
+
+
 def test_parse_plain_text():
     content = "Linha 1 do documento.\n\nLinha 2 com informacoes importantes.".encode("utf-8")
     parsed = parse_document(content, "teste.txt")

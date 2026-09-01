@@ -21,6 +21,31 @@ class ParsedDocument:
         self.total_pages = len(pages)
 
 
+import os
+import re
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitiza o nome do arquivo para prevenir Path Traversal, caracteres de controle e injeções.
+    Remove diretórios, pontuações perigosas e caracteres nulos.
+    """
+    if not filename:
+        return "unnamed_document.txt"
+
+    # Remove qualquer caminho de diretório (Path Traversal)
+    basename = os.path.basename(filename)
+    # Remove caracteres nulos e de controle
+    basename = basename.replace("\x00", "").strip()
+    # Substitui caracteres perigosos por underscore, preservando letras, números, hífen, underline e ponto
+    cleaned = re.sub(r'[^a-zA-Z0-9_\-\. \u00C0-\u00FF]', '_', basename)
+    # Evita arquivos ocultos ou navegação por pontos (ex: '..', '.bashrc')
+    cleaned = cleaned.lstrip(".")
+    if not cleaned:
+        cleaned = "document"
+
+    return cleaned[:255]
+
+
 def calculate_sha256(content: bytes) -> str:
     """Calcula hash SHA-256 dos bytes do arquivo para desduplicação."""
     hasher = hashlib.sha256()

@@ -33,3 +33,4 @@ yarn-error.log*
 # Logs e temporários
 *.log
 .DS_Store
+*.pdf

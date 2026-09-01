@@ -29,6 +29,7 @@ export interface EndpointStatus {
   name: string;
   url: string;
   online: boolean;
+  latency_ms?: number | null;
   details?: string | null;
 }
 

@@ -27,12 +27,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS para desenvolvimento com Vite
+import asyncio
+import os
+from pathlib import Path
+
+# Configuração segura de CORS
+origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+if not origins:
+    origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -71,20 +79,48 @@ async def list_documents():
 @app.post("/api/documents/upload", response_model=DocumentResponse)
 async def upload_document(file: UploadFile = File(...)):
     """
-    Recebe um arquivo (PDF, TXT, MD), verifica desduplicação via SHA-256,
-    fatia em chunks semânticos, gera embeddings e salva no ChromaDB.
+    Recebe um arquivo (PDF, TXT, MD), sanitiza nome/extensão, verifica desduplicação via SHA-256,
+    fatia em chunks semânticos de forma não-bloqueante, gera embeddings e salva no ChromaDB.
     """
+    # 1. Validação de Extensão
+    raw_filename = file.filename or "document.txt"
+    ext = Path(raw_filename).suffix.lower()
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Extensão '{ext}' não suportada. Extensões permitidas: {', '.join(settings.ALLOWED_EXTENSIONS)}"
+        )
+
+    # 2. Leitura com Limite de Tamanho
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     content = await file.read()
-    if not content:
+    if not content or len(content) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="O arquivo enviado está vazio."
         )
 
-    # 1. Parsing e extração
-    parsed_doc = parse_document(content, file.filename)
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Tamanho do arquivo excede o limite máximo permitido de {settings.MAX_UPLOAD_SIZE_MB}MB."
+        )
 
-    # 2. Desduplicação por SHA-256
+    # 3. Sanitização do Nome do Arquivo
+    from app.services.document_parser import sanitize_filename
+    safe_filename = sanitize_filename(raw_filename)
+
+    # 4. Parsing e Extração Não-Bloqueante (executa em worker thread)
+    try:
+        parsed_doc = await asyncio.to_thread(parse_document, content, safe_filename)
+    except Exception as e:
+        logger.error(f"Erro ao processar documento {safe_filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Falha ao extrair texto do documento fornecido."
+        )
+
+    # 5. Desduplicação por SHA-256
     existing = await vector_store.get_document_by_sha256(parsed_doc.sha256)
     if existing:
         return DocumentResponse(
@@ -92,14 +128,22 @@ async def upload_document(file: UploadFile = File(...)):
             document=existing
         )
 
-    # 3. Chunking
+    # 6. Chunking Não-Bloqueante
     doc_id = str(uuid.uuid4())[:8]
-    chunks = create_document_chunks(
-        parsed_doc=parsed_doc,
-        doc_id=doc_id,
-        chunk_size=settings.CHUNK_SIZE,
-        chunk_overlap=settings.CHUNK_OVERLAP
-    )
+    try:
+        chunks = await asyncio.to_thread(
+            create_document_chunks,
+            parsed_doc,
+            doc_id,
+            settings.CHUNK_SIZE,
+            settings.CHUNK_OVERLAP
+        )
+    except Exception as e:
+        logger.error(f"Erro no chunking do documento {safe_filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro interno ao fatiar o documento em chunks."
+        )
 
     if not chunks:
         raise HTTPException(
@@ -107,18 +151,18 @@ async def upload_document(file: UploadFile = File(...)):
             detail="Não foi possível extrair texto utilizável do documento."
         )
 
-    # 4. Gerar Embeddings em batch via llama-server
+    # 7. Gerar Embeddings via llama-server
     try:
         chunk_texts = [c.content for c in chunks]
         embeddings = await llama_client.get_embeddings(chunk_texts)
     except Exception as e:
-        logger.error(f"Erro ao gerar embeddings para o arquivo {file.filename}: {e}")
+        logger.error(f"Erro ao gerar embeddings para o arquivo {safe_filename}: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Falha ao conectar no endpoint de embeddings do llama-server ({settings.LLAMA_EMBED_URL}): {str(e)}"
+            detail=f"Falha ao conectar no endpoint de embeddings do llama-server ({settings.LLAMA_EMBED_URL}). Verifique se o servidor de embedding está ativo."
         )
 
-    # 5. Salvar no Vector Store
+    # 8. Salvar no Vector Store
     doc_metadata = DocumentMetadata(
         doc_id=doc_id,
         filename=parsed_doc.filename,

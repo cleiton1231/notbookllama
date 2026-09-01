@@ -147,20 +147,23 @@ class LlamaClient:
                 yield f"\n\n[Erro na comunicação com o modelo local: {str(e)}]"
 
     async def check_endpoint(self, name: str, url: str) -> EndpointStatus:
-        """Verifica a saúde de um endpoint individual com timeout de 2 segundos."""
+        """Verifica a saúde de um endpoint individual com timeout de 2 segundos e calcula latência."""
+        import time
+        start_time = time.perf_counter()
         async with httpx.AsyncClient(timeout=2.0) as client:
             try:
-                # Tenta /health ou root
                 base = url.rstrip("/")
                 res = await client.get(f"{base}/health")
+                latency = int((time.perf_counter() - start_time) * 1000)
                 if res.status_code < 500:
-                    return EndpointStatus(name=name, url=url, online=True, details="OK")
+                    return EndpointStatus(name=name, url=url, online=True, latency_ms=latency, details="Operacional")
             except Exception:
                 try:
                     res = await client.get(base)
-                    return EndpointStatus(name=name, url=url, online=res.status_code < 500, details="Conectado")
+                    latency = int((time.perf_counter() - start_time) * 1000)
+                    return EndpointStatus(name=name, url=url, online=res.status_code < 500, latency_ms=latency, details="Conectado")
                 except Exception as e:
-                    return EndpointStatus(name=name, url=url, online=False, details=str(e))
+                    return EndpointStatus(name=name, url=url, online=False, details=str(e)[:50])
         return EndpointStatus(name=name, url=url, online=False, details="Offline")
 
     async def check_all_health(self) -> Dict[str, EndpointStatus]:
