@@ -51,6 +51,8 @@ class VectorStore:
     async def get_document_by_sha256(self, sha256_hash: str) -> Optional[DocumentMetadata]:
         """Verifica se um documento já foi indexado usando hash SHA-256."""
         async with self._lock:
+            if self.doc_collection is None:
+                return None
             try:
                 results = self.doc_collection.get(
                     where={"sha256": sha256_hash},
@@ -70,7 +72,7 @@ class VectorStore:
         embeddings: List[List[float]]
     ) -> None:
         """Salva metadados do documento e chunks com seus respectivos vetores."""
-        if not chunks or not embeddings:
+        if not chunks or not embeddings or self.doc_collection is None or self.chunk_collection is None:
             return
 
         async with self._lock:
@@ -114,6 +116,9 @@ class VectorStore:
         Retorna tuplas (DocumentChunk, score_de_similaridade).
         """
         async with self._lock:
+            if self.chunk_collection is None:
+                return []
+
             where_filter = None
             if doc_ids and len(doc_ids) == 1:
                 where_filter = {"doc_id": doc_ids[0]}
@@ -157,6 +162,8 @@ class VectorStore:
     async def list_documents(self) -> List[DocumentMetadata]:
         """Retorna todos os documentos indexados."""
         async with self._lock:
+            if self.doc_collection is None:
+                return []
             try:
                 results = self.doc_collection.get()
                 docs = []
@@ -171,6 +178,8 @@ class VectorStore:
     async def delete_document(self, doc_id: str) -> bool:
         """Exclui documento e todos os seus chunks associados."""
         async with self._lock:
+            if self.doc_collection is None or self.chunk_collection is None:
+                return False
             try:
                 # Deletar chunks associados
                 self.chunk_collection.delete(where={"doc_id": doc_id})
@@ -184,6 +193,8 @@ class VectorStore:
     async def get_counts(self) -> Tuple[int, int]:
         """Retorna (total_documentos, total_chunks)."""
         async with self._lock:
+            if self.doc_collection is None or self.chunk_collection is None:
+                return 0, 0
             total_docs = self.doc_collection.count()
             total_chunks = self.chunk_collection.count()
             return total_docs, total_chunks

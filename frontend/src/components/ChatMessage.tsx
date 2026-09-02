@@ -1,22 +1,29 @@
-import React, { useState, memo } from 'react';
+import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message, SourceReference } from '../types';
-import { Copy, Check, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import { ChatMessageActions } from './ChatMessageActions';
 
 interface ChatMessageProps {
   message: Message;
+  messageIndex: number;
+  isLast: boolean;
+  isGenerating: boolean;
   onOpenSource: (source: SourceReference) => void;
+  onRegenerate?: (messageIndex: number) => void;
+  onEdit?: (messageIndex: number, newContent: string) => void;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, onOpenSource }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = memo(({
+  message,
+  messageIndex,
+  isLast,
+  isGenerating,
+  onOpenSource,
+  onRegenerate,
+  onEdit,
+}) => {
   const isUser = message.role === 'user';
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className={`w-full py-6 px-4 md:px-0 flex justify-center ${isUser ? '' : 'bg-transparent'}`}>
@@ -39,13 +46,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({ message, onOpenSo
             <span className="font-semibold text-zinc-200 text-sm">
               {isUser ? 'Você' : 'DocMind'}
             </span>
-            <button
-              onClick={handleCopy}
-              className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition"
-              title="Copiar mensagem"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
+            <ChatMessageActions
+              messageIndex={messageIndex}
+              role={isUser ? 'user' : 'assistant'}
+              content={message.content}
+              isLast={isLast}
+              isGenerating={isGenerating}
+              onRegenerate={onRegenerate ? () => onRegenerate(messageIndex) : undefined}
+              onEdit={onEdit ? (newContent) => onEdit(messageIndex, newContent) : undefined}
+            />
           </div>
 
           {/* Text / Markdown */}

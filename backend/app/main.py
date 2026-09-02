@@ -21,15 +21,28 @@ from app.services.rag_engine import rag_engine
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("docmind.main")
 
+import asyncio
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicializa banco SQLite de histórico e recursos na inicialização da aplicação."""
+    try:
+        from app.services.chat_history import init_db
+        init_db()
+    except Exception as e:
+        logger.warning(f"Erro ao inicializar DB de histórico de chat: {e}")
+    yield
+
+
 app = FastAPI(
     title="DocMind API",
     description="API do Segundo Cérebro & RAG Local com llama.cpp",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
-
-import asyncio
-import os
-from pathlib import Path
 
 # Configuração segura de CORS
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
@@ -40,9 +53,18 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Importar e registrar roteadores modulares
+from app.routers.sessions import router as sessions_router
+from app.routers.regenerate import router as regenerate_router
+from app.routers.eval import router as eval_router
+
+app.include_router(sessions_router)
+app.include_router(regenerate_router)
+app.include_router(eval_router)
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -179,6 +201,13 @@ async def upload_document(file: UploadFile = File(...)):
         embeddings=embeddings
     )
 
+    # 9. Sincronizar índice lexical BM25
+    try:
+        from app.services.bm25_search import bm25_search
+        bm25_search.add_chunks(chunks)
+    except Exception as e:
+        logger.warning(f"Erro ao sincronizar BM25 no upload: {e}")
+
     return DocumentResponse(
         message=f"Documento '{parsed_doc.filename}' indexado com sucesso!",
         document=doc_metadata
@@ -194,6 +223,14 @@ async def delete_document(doc_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Documento com ID {doc_id} não encontrado."
         )
+
+    # Sincronizar remoção no índice lexical BM25
+    try:
+        from app.services.bm25_search import bm25_search
+        bm25_search.remove_document(doc_id)
+    except Exception as e:
+        logger.warning(f"Erro ao remover documento do BM25: {e}")
+
     return {"message": f"Documento {doc_id} removido com sucesso."}
 
 

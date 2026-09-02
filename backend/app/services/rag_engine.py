@@ -38,27 +38,55 @@ class RAGEngine:
         - event: error
         """
         try:
+            # 0. Persistência da Pergunta do Usuário se houver session_id
+            if request.session_id:
+                try:
+                    from app.services.chat_history import get_session, create_session, add_message
+                    if not get_session(request.session_id):
+                        create_session(session_id=request.session_id)
+                    add_message(
+                        session_id=request.session_id,
+                        role="user",
+                        content=request.message
+                    )
+                except Exception as hist_err:
+                    logger.warning(f"Erro ao salvar mensagem do usuário na sessão {request.session_id}: {hist_err}")
+
             # 1. Gerar Embedding da Pergunta
             query_embeddings = await self.llama.get_embeddings([request.message])
             if not query_embeddings or len(query_embeddings) == 0:
-                yield "event: error\ndata: " + json.dumps({"error": "Falha ao gerar embedding da pergunta no llama-server."}) + "\n\n"
+                yield "event: error\ndata: " + json.dumps({"error": "Falha ao gerar embedding da pergunta no llama-server."}, ensure_ascii=False) + "\n\n"
                 return
 
             query_vec = query_embeddings[0]
 
-            # 2. Busca Vetorial Ampla (Estágio 1: Recall)
+            # 2. Busca Híbrida: ChromaDB (Vetorial) + BM25 (Lexical) com Reciprocal Rank Fusion (RRF)
             top_k_retrieval = request.top_k or settings.TOP_K_RETRIEVAL
-            candidate_chunks = await self.vectors.search_chunks(
+            from app.services.hybrid_search import hybrid_search_chunks
+            candidate_chunks = await hybrid_search_chunks(
+                query=request.message,
                 query_embedding=query_vec,
                 top_k=top_k_retrieval,
-                doc_ids=request.doc_ids
+                doc_ids=request.doc_ids,
+                vector_store=self.vectors
             )
 
             if not candidate_chunks:
                 # Nenhum chunk encontrado
                 no_docs_msg = "Nenhum documento indexado correspondente à sua busca foi encontrado. Faça o upload de arquivos na barra lateral para começar a pesquisar!"
-                yield "event: sources\ndata: " + json.dumps({"sources": []}) + "\n\n"
-                yield "event: token\ndata: " + json.dumps({"token": no_docs_msg}) + "\n\n"
+                if request.session_id:
+                    try:
+                        from app.services.chat_history import add_message
+                        add_message(
+                            session_id=request.session_id,
+                            role="assistant",
+                            content=no_docs_msg,
+                            sources=[]
+                        )
+                    except Exception as hist_err:
+                        logger.warning(f"Erro ao salvar mensagem no histórico: {hist_err}")
+                yield "event: sources\ndata: " + json.dumps({"sources": []}, ensure_ascii=False) + "\n\n"
+                yield "event: token\ndata: " + json.dumps({"token": no_docs_msg}, ensure_ascii=False) + "\n\n"
                 yield "event: done\ndata: {}\n\n"
                 return
 
@@ -108,7 +136,7 @@ class RAGEngine:
                     ).model_dump()
                 )
 
-            yield "event: sources\ndata: " + json.dumps({"sources": source_payload}) + "\n\n"
+            yield "event: sources\ndata: " + json.dumps({"sources": source_payload}, ensure_ascii=False) + "\n\n"
 
             # 5. Montagem do Contexto e Prompt com Gestão de Token Budget
             context_text = self._build_context_prompt(final_sources)
@@ -136,15 +164,31 @@ class RAGEngine:
             messages.append({"role": "user", "content": request.message})
 
             # 6. Streaming dos tokens da LLM
+            accumulated_tokens: List[str] = []
             async for token in self.llama.stream_chat(messages, temperature=request.temperature):
-                yield "event: token\ndata: " + json.dumps({"token": token}) + "\n\n"
+                accumulated_tokens.append(token)
+                yield "event: token\ndata: " + json.dumps({"token": token}, ensure_ascii=False) + "\n\n"
 
-            # 7. Finalização do SSE
+            # 7. Persistência da Resposta do Assistente
+            if request.session_id and accumulated_tokens:
+                try:
+                    from app.services.chat_history import add_message
+                    full_reply = "".join(accumulated_tokens)
+                    add_message(
+                        session_id=request.session_id,
+                        role="assistant",
+                        content=full_reply,
+                        sources=source_payload
+                    )
+                except Exception as hist_err:
+                    logger.warning(f"Erro ao salvar resposta do assistente na sessão {request.session_id}: {hist_err}")
+
+            # 8. Finalização do SSE
             yield "event: done\ndata: {}\n\n"
 
         except Exception as e:
             logger.error(f"Erro no pipeline RAG: {e}", exc_info=True)
-            yield "event: error\ndata: " + json.dumps({"error": f"Erro interno no processamento RAG: {str(e)}"}) + "\n\n"
+            yield "event: error\ndata: " + json.dumps({"error": f"Erro interno no processamento RAG: {str(e)}"}, ensure_ascii=False) + "\n\n"
 
 
 rag_engine = RAGEngine()

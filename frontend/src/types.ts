@@ -44,9 +44,27 @@ export interface HealthResponse {
 
 export interface Message {
   id: string;
+  session_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   sources?: SourceReference[];
-  timestamp: string;
+  timestamp?: string;
+  created_at?: string;
   isStreaming?: boolean;
 }
+
+export interface SessionSummary {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionDetail {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: Message[];
+}
+

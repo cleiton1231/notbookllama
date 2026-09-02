@@ -4,7 +4,15 @@ import { ChatMessage } from './components/ChatMessage';
 import { StatusIndicator } from './components/StatusIndicator';
 import { SourceModal } from './components/SourceModal';
 import { DocumentMetadata, HealthResponse, Message, SourceReference } from './types';
-import { fetchDocuments, fetchHealth, deleteDocument, streamChat } from './services/api';
+import {
+  fetchDocuments,
+  fetchHealth,
+  deleteDocument,
+  streamChat,
+  streamRegenerate,
+  fetchSession,
+  createSession,
+} from './services/api';
 import {
   ArrowUp,
   Square,
@@ -17,6 +25,8 @@ export const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState<number>(0);
   const [input, setInput] = useState('');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
@@ -99,13 +109,38 @@ export const App: React.FC = () => {
     setSelectedDocIds([]);
   }, []);
 
-  const handleNewChat = useCallback(() => {
-    if (messages.length > 0) {
-      if (confirm('Iniciar uma nova conversa e limpar o histórico atual?')) {
-        setMessages([]);
-      }
+  const handleSelectSession = useCallback(async (sessionId: string) => {
+    if (isGenerating && abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
-  }, [messages.length]);
+    try {
+      const detail = await fetchSession(sessionId);
+      setCurrentSessionId(detail.id);
+      setMessages(
+        detail.messages.map((m) => ({
+          id: m.id,
+          session_id: m.session_id,
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+          sources: m.sources,
+          timestamp: m.created_at || m.timestamp || new Date().toISOString(),
+          isStreaming: false,
+        }))
+      );
+    } catch (err) {
+      console.error('Erro ao carregar conversa:', err);
+    }
+  }, [isGenerating]);
+
+  const handleNewChat = useCallback(() => {
+    if (isGenerating && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setCurrentSessionId(null);
+    setMessages([]);
+    setInput('');
+    setRefreshHistoryTrigger((prev) => prev + 1);
+  }, [isGenerating]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || input.trim();
@@ -113,8 +148,23 @@ export const App: React.FC = () => {
 
     isUserScrolledUp.current = false;
 
+    // Ensure session exists or create one
+    let activeSessionId = currentSessionId;
+    if (!activeSessionId) {
+      try {
+        const firstLine = query.split('\n')[0].trim();
+        const autoTitle = firstLine.length > 35 ? firstLine.slice(0, 35) + '...' : firstLine;
+        const newSession = await createSession(autoTitle);
+        activeSessionId = newSession.id;
+        setCurrentSessionId(activeSessionId);
+      } catch (e) {
+        console.warn('Não foi possível pré-criar sessão:', e);
+      }
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
+      session_id: activeSessionId || undefined,
       role: 'user',
       content: query,
       timestamp: new Date().toISOString(),
@@ -123,6 +173,7 @@ export const App: React.FC = () => {
     const assistantMsgId = (Date.now() + 1).toString();
     const placeholderAssistant: Message = {
       id: assistantMsgId,
+      session_id: activeSessionId || undefined,
       role: 'assistant',
       content: '',
       sources: [],
@@ -147,6 +198,7 @@ export const App: React.FC = () => {
       history: historyPayload,
       doc_ids: selectedDocIds.length > 0 ? selectedDocIds : undefined,
       use_rerank: useRerank,
+      sessionId: activeSessionId,
       signal: abortController.signal,
       onSources: (sources) => {
         setMessages((prev) =>
@@ -166,6 +218,7 @@ export const App: React.FC = () => {
         );
         setIsGenerating(false);
         abortControllerRef.current = null;
+        setRefreshHistoryTrigger((prev) => prev + 1);
       },
       onError: (err) => {
         setMessages((prev) =>
@@ -180,6 +233,160 @@ export const App: React.FC = () => {
       },
     });
   };
+
+  const handleRegenerate = useCallback(
+    async (messageIndex: number) => {
+      if (isGenerating) return;
+
+      // Find the user query to regenerate for
+      const targetUserIndex = messageIndex - 1;
+      const userMsg = targetUserIndex >= 0 ? messages[targetUserIndex] : null;
+      if (!userMsg || userMsg.role !== 'user') return;
+
+      const userQuery = userMsg.content;
+      const historyBeforeUser = messages.slice(0, targetUserIndex).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const assistantMsgId = Date.now().toString();
+      const placeholderAssistant: Message = {
+        id: assistantMsgId,
+        session_id: currentSessionId || undefined,
+        role: 'assistant',
+        content: '',
+        sources: [],
+        timestamp: new Date().toISOString(),
+        isStreaming: true,
+      };
+
+      // Truncate messages to keep history + user query + new assistant placeholder
+      setMessages([...messages.slice(0, targetUserIndex + 1), placeholderAssistant]);
+      setIsGenerating(true);
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      await streamRegenerate({
+        message: userQuery,
+        history: historyBeforeUser,
+        doc_ids: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        use_rerank: useRerank,
+        sessionId: currentSessionId,
+        signal: abortController.signal,
+        onSources: (sources) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
+          );
+        },
+        onToken: (token) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: m.content + token } : m
+            )
+          );
+        },
+        onDone: () => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, isStreaming: false } : m))
+          );
+          setIsGenerating(false);
+          abortControllerRef.current = null;
+          setRefreshHistoryTrigger((prev) => prev + 1);
+        },
+        onError: (err) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, content: m.content + `\n\n⚠️ ${err}`, isStreaming: false }
+                : m
+            )
+          );
+          setIsGenerating(false);
+          abortControllerRef.current = null;
+        },
+      });
+    },
+    [isGenerating, messages, selectedDocIds, useRerank, currentSessionId]
+  );
+
+  const handleEditAndResend = useCallback(
+    async (messageIndex: number, newContent: string) => {
+      if (isGenerating || !newContent.trim()) return;
+
+      const historyBefore = messages.slice(0, messageIndex);
+      const updatedUserMsg: Message = {
+        id: Date.now().toString(),
+        session_id: currentSessionId || undefined,
+        role: 'user',
+        content: newContent,
+        timestamp: new Date().toISOString(),
+      };
+
+      const assistantMsgId = (Date.now() + 1).toString();
+      const placeholderAssistant: Message = {
+        id: assistantMsgId,
+        session_id: currentSessionId || undefined,
+        role: 'assistant',
+        content: '',
+        sources: [],
+        timestamp: new Date().toISOString(),
+        isStreaming: true,
+      };
+
+      setMessages([...historyBefore, updatedUserMsg, placeholderAssistant]);
+      setIsGenerating(true);
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      const historyPayload = historyBefore.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      await streamChat({
+        message: newContent,
+        history: historyPayload,
+        doc_ids: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        use_rerank: useRerank,
+        sessionId: currentSessionId,
+        signal: abortController.signal,
+        onSources: (sources) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, sources } : m))
+          );
+        },
+        onToken: (token) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: m.content + token } : m
+            )
+          );
+        },
+        onDone: () => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantMsgId ? { ...m, isStreaming: false } : m))
+          );
+          setIsGenerating(false);
+          abortControllerRef.current = null;
+          setRefreshHistoryTrigger((prev) => prev + 1);
+        },
+        onError: (err) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, content: m.content + `\n\n⚠️ ${err}`, isStreaming: false }
+                : m
+            )
+          );
+          setIsGenerating(false);
+          abortControllerRef.current = null;
+        },
+      });
+    },
+    [isGenerating, messages, selectedDocIds, useRerank, currentSessionId]
+  );
 
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
@@ -215,6 +422,9 @@ export const App: React.FC = () => {
         onNewChat={handleNewChat}
         useRerank={useRerank}
         onToggleRerank={setUseRerank}
+        currentSessionId={currentSessionId}
+        onSelectSession={handleSelectSession}
+        refreshHistoryTrigger={refreshHistoryTrigger}
       />
 
       {/* Área Principal de Chat */}
@@ -279,8 +489,17 @@ export const App: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-white/[0.04]">
-              {messages.map((msg) => (
-                <ChatMessage key={msg.id} message={msg} onOpenSource={setActiveSource} />
+              {messages.map((msg, idx) => (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  messageIndex={idx}
+                  isLast={idx === messages.length - 1}
+                  isGenerating={isGenerating}
+                  onOpenSource={setActiveSource}
+                  onRegenerate={handleRegenerate}
+                  onEdit={handleEditAndResend}
+                />
               ))}
               <div ref={messagesEndRef} />
             </div>

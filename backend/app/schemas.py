@@ -47,6 +47,7 @@ class ChatRequest(BaseModel):
     temperature: float = 0.3
     use_rerank: bool = True
     top_k: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 class SourceReference(BaseModel):

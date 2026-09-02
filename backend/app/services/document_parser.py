@@ -53,20 +53,18 @@ def calculate_sha256(content: bytes) -> str:
     return hasher.hexdigest()
 
 
+from app.services.ocr_parser import extract_pdf_pages_ocr
+
+
 def parse_pdf(content: bytes, filename: str) -> List[ParsedPage]:
-    """Extrai texto e número de páginas de um arquivo PDF."""
-    pdf_file = io.BytesIO(content)
-    reader = PdfReader(pdf_file)
-    pages = []
-    for idx, page in enumerate(reader.pages):
-        page_text = page.extract_text() or ""
-        # Limpar quebras excessivas preservando parágrafos
-        cleaned_text = page_text.strip()
-        if cleaned_text:
-            pages.append(ParsedPage(page_number=idx + 1, text=cleaned_text))
-    
+    """Extrai texto e número de páginas de um arquivo PDF com fallback OCR para PDFs digitalizados/sem camada de texto."""
+    ocr_pages = extract_pdf_pages_ocr(content, min_chars_threshold=50)
+    pages = [
+        ParsedPage(page_number=int(p["page_number"]), text=str(p["text"]))
+        for p in ocr_pages
+        if p.get("text") and str(p["text"]).strip()
+    ]
     if not pages:
-        # Se for PDF sem camada de texto legível
         pages.append(ParsedPage(page_number=1, text="[Aviso: PDF sem camada de texto legível]"))
     return pages
 
