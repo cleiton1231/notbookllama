@@ -6,6 +6,7 @@ export interface DocumentMetadata {
   sha256: string;
   total_chunks: number;
   total_pages?: number | null;
+  ocr_used?: boolean;
   created_at: string;
 }
 

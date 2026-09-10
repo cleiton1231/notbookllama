@@ -255,6 +255,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span className="text-coral-400/90">{doc.total_chunks} chunks</span>
                         <span>•</span>
                         <span>{formatFileSize(doc.file_size)}</span>
+                        {doc.ocr_used && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            OCR
+                          </span>
+                        )}
                       </div>
                     </div>
 

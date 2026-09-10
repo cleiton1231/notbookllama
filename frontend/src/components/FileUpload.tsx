@@ -10,7 +10,10 @@ interface FileUploadProps {
 export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: 'success' | 'error' | 'ocr';
+    text: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -42,7 +45,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
 
     try {
       const response = await uploadDocument(file);
-      setStatusMessage({ type: 'success', text: response.message });
+      if (response.document.ocr_used) {
+        setStatusMessage({
+          type: 'ocr',
+          text: `${response.message} Texto extraído via Tesseract.`,
+        });
+      } else {
+        setStatusMessage({ type: 'success', text: response.message });
+      }
       onUploadSuccess(response.document);
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err.message || 'Falha ao indexar arquivo' });
@@ -99,16 +109,23 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
 
       {statusMessage && (
         <div
+          data-testid={statusMessage.type === 'ocr' ? 'ocr-upload-notice' : undefined}
           className={`mt-2 flex items-start space-x-2 p-2 rounded-lg text-xs border ${
             statusMessage.type === 'success'
               ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-300'
-              : 'bg-rose-950/20 border-rose-800/40 text-rose-300'
+              : statusMessage.type === 'ocr'
+                ? 'bg-amber-950/20 border-amber-800/40 text-amber-200'
+                : 'bg-rose-950/20 border-rose-800/40 text-rose-300'
           }`}
         >
-          {statusMessage.type === 'success' ? (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-          ) : (
+          {statusMessage.type === 'error' ? (
             <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+          ) : (
+            <CheckCircle2
+              className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                statusMessage.type === 'ocr' ? 'text-amber-400' : 'text-emerald-400'
+              }`}
+            />
           )}
           <span className="text-[11px] leading-tight">{statusMessage.text}</span>
         </div>
