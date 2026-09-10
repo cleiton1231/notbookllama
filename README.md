@@ -40,6 +40,8 @@
   - Health / latency indicators for chat, embed, and rerank endpoints.
   - Drag-and-drop upload, document multi-select, citation pills, source deep-inspect modal.
   - Session history tab, regenerate and inline edit actions on messages.
+  - Mobile sidebar drawer, OCR upload/list badges, last-turn RAG eval modal, GFM tables + code highlighting.
+  - Empty-library guidance and offline banner when chat/embed llama-server endpoints are down.
 
 ---
 
@@ -273,7 +275,7 @@ npm run build
 
 Implemented modular expansion (see `PROJECT.md`): conversation persistence, regenerate/edit, BM25+RRF hybrid search, OCR fallback, deterministic RAG evaluator.
 
-Next polish focus (not yet shipped): mobile sidebar/drawer UX, upload OCR feedback in the UI, lightweight eval panel, richer markdown/code rendering.
+Phase 2 UX polish (shipped): mobile drawer sidebar, OCR feedback on upload/list, last-turn eval modal (`POST /api/eval/rag`), GFM tables + highlighted code, empty-library and engine-offline banners.
 
 ---
 
