@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { ChatMessage } from './components/ChatMessage';
 import { StatusIndicator } from './components/StatusIndicator';
 import { SourceModal } from './components/SourceModal';
+import { EvalModal } from './components/EvalModal';
 import { DocumentMetadata, HealthResponse, Message, SourceReference } from './types';
 import {
   fetchDocuments,
@@ -13,6 +14,7 @@ import {
   fetchSession,
   createSession,
 } from './services/api';
+import { buildEvalTurnPayload, EvalTurnPayload } from './services/evalPayload';
 import {
   ArrowUp,
   Square,
@@ -35,6 +37,7 @@ export const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [useRerank, setUseRerank] = useState(true);
   const [activeSource, setActiveSource] = useState<SourceReference | null>(null);
+  const [evalPayload, setEvalPayload] = useState<EvalTurnPayload | null>(null);
   const { isOpen: sidebarOpen, isDesktop, close: closeSidebar, toggle: toggleSidebar } =
     useSidebarDrawer();
 
@@ -407,6 +410,14 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleEvaluate = useCallback(
+    (messageIndex: number) => {
+      const payload = buildEvalTurnPayload(messages, messageIndex);
+      if (payload) setEvalPayload(payload);
+    },
+    [messages]
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -533,6 +544,7 @@ export const App: React.FC = () => {
                   onOpenSource={setActiveSource}
                   onRegenerate={handleRegenerate}
                   onEdit={handleEditAndResend}
+                  onEvaluate={handleEvaluate}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -599,6 +611,7 @@ export const App: React.FC = () => {
 
       {/* Modal de Detalhes da Fonte Citada */}
       <SourceModal source={activeSource} onClose={() => setActiveSource(null)} />
+      <EvalModal payload={evalPayload} onClose={() => setEvalPayload(null)} />
     </div>
   );
 };

@@ -5,7 +5,9 @@ import {
   DocumentMetadata,
   SessionSummary,
   SessionDetail,
+  RAGEvalResponse,
 } from '../types';
+import type { EvalTurnPayload } from './evalPayload';
 
 const API_BASE = '/api';
 
@@ -77,6 +79,19 @@ export async function createSession(title?: string): Promise<SessionSummary> {
   });
   if (!res.ok) {
     throw new Error(`Falha ao criar conversa: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function evaluateRagTurn(payload: EvalTurnPayload): Promise<RAGEvalResponse> {
+  const res = await fetch(`${API_BASE}/eval/rag`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Erro na avaliação' }));
+    throw new Error(errorData.detail || `Falha ao avaliar RAG: ${res.statusText}`);
   }
   return res.json();
 }

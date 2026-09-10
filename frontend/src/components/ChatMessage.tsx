@@ -12,6 +12,7 @@ interface ChatMessageProps {
   onOpenSource: (source: SourceReference) => void;
   onRegenerate?: (messageIndex: number) => void;
   onEdit?: (messageIndex: number, newContent: string) => void;
+  onEvaluate?: (messageIndex: number) => void;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = memo(({
@@ -22,6 +23,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
   onOpenSource,
   onRegenerate,
   onEdit,
+  onEvaluate,
 }) => {
   const isUser = message.role === 'user';
 
@@ -54,6 +56,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
               isGenerating={isGenerating}
               onRegenerate={onRegenerate ? () => onRegenerate(messageIndex) : undefined}
               onEdit={onEdit ? (newContent) => onEdit(messageIndex, newContent) : undefined}
+              onEvaluate={onEvaluate ? () => onEvaluate(messageIndex) : undefined}
             />
           </div>
 

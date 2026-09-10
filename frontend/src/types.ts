@@ -69,3 +69,12 @@ export interface SessionDetail {
   messages: Message[];
 }
 
+export interface RAGEvalResponse {
+  chunk_recall: number | null;
+  chunk_precision: number | null;
+  lexical_faithfulness: number;
+  answer_relevance: number;
+  overall_score: number;
+  details: Record<string, unknown>;
+}
+

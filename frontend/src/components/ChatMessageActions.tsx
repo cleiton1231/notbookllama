@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Check, RotateCw, Pencil, X, Send } from 'lucide-react';
+import { Copy, Check, RotateCw, Pencil, X, Send, BarChart3 } from 'lucide-react';
 
 export interface ChatMessageActionsProps {
   messageIndex: number;
@@ -9,14 +9,17 @@ export interface ChatMessageActionsProps {
   isGenerating: boolean;
   onRegenerate?: () => void;
   onEdit?: (newContent: string) => void;
+  onEvaluate?: () => void;
 }
 
 export const ChatMessageActions: React.FC<ChatMessageActionsProps> = ({
   role,
   content,
+  isLast,
   isGenerating,
   onRegenerate,
   onEdit,
+  onEvaluate,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -170,6 +173,19 @@ export const ChatMessageActions: React.FC<ChatMessageActionsProps> = ({
         >
           <RotateCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin text-coral-400' : ''}`} />
           <span className="text-[11px]">Regenerar</span>
+        </button>
+      )}
+
+      {!isUser && isLast && onEvaluate && content.trim() && (
+        <button
+          type="button"
+          onClick={onEvaluate}
+          disabled={isGenerating}
+          className="inline-flex items-center space-x-1 p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          title="Avaliar turno RAG"
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span className="text-[11px]">Avaliar</span>
         </button>
       )}
     </div>
