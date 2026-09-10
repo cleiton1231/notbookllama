@@ -34,6 +34,13 @@ async def lifespan(app: FastAPI):
         init_db()
     except Exception as e:
         logger.warning(f"Erro ao inicializar DB de histórico de chat: {e}")
+    try:
+        from app.services.bm25_search import rehydrate_from_vector_store, bm25_search
+        restored = await rehydrate_from_vector_store(vector_store, bm25_search)
+        if restored:
+            logger.info(f"Índice BM25 reidratado com {restored} chunks persistidos.")
+    except Exception as e:
+        logger.warning(f"Erro ao reidratar índice BM25: {e}")
     yield
 
 

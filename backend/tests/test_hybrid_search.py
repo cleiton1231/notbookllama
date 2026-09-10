@@ -577,3 +577,17 @@ async def test_hybrid_searcher_no_embedding_and_no_bm25():
     )
 
     assert results == []
+
+
+@pytest.mark.asyncio
+async def test_rehydrate_from_vector_store_indexes_chunks(sample_chunks):
+    from app.services.bm25_search import rehydrate_from_vector_store
+
+    store = MagicMock()
+    store.get_all_chunks = AsyncMock(return_value=sample_chunks)
+    bm25 = BM25Search()
+    count = await rehydrate_from_vector_store(store, bm25)
+    assert count == len(sample_chunks)
+    assert bm25.total_chunks == len(sample_chunks)
+    hits = bm25.search("malloc", top_k=5)
+    assert len(hits) >= 1

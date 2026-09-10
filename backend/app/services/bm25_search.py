@@ -288,6 +288,15 @@ class BM25Search:
         return self.total_chunks
 
 
+async def rehydrate_from_vector_store(vector_store, bm25_index: "BM25Search | None" = None) -> int:
+    """Rebuild the in-memory BM25 index from persisted Chroma chunks."""
+    index = bm25_index if bm25_index is not None else bm25_search
+    chunks = await vector_store.get_all_chunks()
+    if chunks:
+        index.index_chunks(chunks)
+    return len(chunks)
+
+
 # Alias e instância singleton global
 BM25Index = BM25Search
 bm25_search = BM25Search()
