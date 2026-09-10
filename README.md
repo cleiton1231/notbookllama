@@ -1,5 +1,7 @@
 # 🧠 DocMind — Local Second Brain & High-Precision RAG Workstation
 
+> **Repository:** [`cleiton1231/notbookllama`](https://github.com/cleiton1231/notbookllama) · **Product name:** DocMind
+
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://python.org)
@@ -11,7 +13,7 @@
 [![llama.cpp](https://img.shields.io/badge/llama.cpp-Engine-purple.svg)](https://github.com/ggerganov/llama.cpp)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**A private, 100% local "Second Brain" & RAG (Retrieval-Augmented Generation) application powered by `llama.cpp` (`llama-server`), featuring a 2-stage retrieval + cross-encoder reranker pipeline, persistent vector storage, real-time SSE token streaming, and an interactive modern UI.**
+**A private, 100% local "Second Brain" & RAG application powered by `llama.cpp` (`llama-server`), with hybrid BM25 + vector retrieval, cross-encoder reranking, conversation persistence, OCR fallback for scanned PDFs, real-time SSE streaming, and a modern React UI.**
 
 </div>
 
@@ -19,25 +21,25 @@
 
 ## ✨ Features
 
-- **🔒 100% Offline & Private:** No telemetry, no external cloud dependencies. Your documents and conversation history never leave your machine.
-- **⚡ Two-Stage RAG Pipeline:**
-  1. **Broad Recall:** ChromaDB retrieves the Top-24 candidate chunks using semantic cosine similarity.
-  2. **Precision Reranking:** A dedicated cross-encoder reranker (`/v1/rerank`) evaluates cross-attention to select the Top-12 most relevant passages.
-  3. **Resilient Fallback:** Automatically falls back to pure vector similarity if the reranking service is offline.
+- **🔒 100% Offline & Private:** No telemetry, no external cloud dependencies. Documents and chat history stay on your machine.
+- **⚡ Hybrid Retrieval + Rerank Pipeline:**
+  1. **Lexical recall:** Okapi BM25 over indexed chunks.
+  2. **Semantic recall:** ChromaDB cosine similarity (Top-K retrieval pool).
+  3. **Fusion:** Reciprocal Rank Fusion (RRF, `k=60`) merges both rankings.
+  4. **Precision reranking:** Cross-encoder via `llama-server` `/v1/rerank` (Top-K rerank), with automatic fallback to fused scores if the reranker is offline.
+  5. **Noise prune:** `MIN_RELEVANCE_SCORE` drops near-zero matches before prompting.
+- **💬 Conversation Persistence:** SQLite sessions and messages, sidebar history, switch/resume/delete chats.
+- **♻️ Regenerate & Inline Edit:** Re-run the last turn or an edited question through the same SSE RAG stream.
 - **📄 Smart Document Ingestion:**
-  - Automated parsing for PDF, Markdown (`.md`), and Plain Text (`.txt`).
-  - Page-number tracking for exact citation linking.
-  - Cryptographic **SHA-256 deduplication** to avoid re-indexing identical files.
-  - Safe filename sanitization protecting against Path Traversal.
-- **💬 Real-Time SSE Token Streaming:**
-  - Server-Sent Events with typed event contracts (`sources`, `token`, `done`, `error`).
-  - Native client disconnect / `AbortController` cancellation support.
-  - Reasoning effort disabled (`reasoning_effort: "none"`, `enable_thinking: false`) for fast, context-preserving answers.
-- **🖥️ Local AI Studio Interface:**
-  - Dynamic latency and health monitoring across all local endpoints (Chat, Embeddings, Reranker).
-  - Drag-and-drop document upload with real-time feedback.
-  - Interactive source citation pills with confidence breakdown.
-  - Deep-inspection modal displaying original chunk text and similarity vs. rerank metrics.
+  - PDF, Markdown (`.md`), plain text (`.txt`), plus `.csv` / `.json`.
+  - Page-number tracking for citation linking.
+  - SHA-256 deduplication and path-traversal-safe filename sanitization.
+  - **OCR fallback** for image-only / scanned PDFs via local `pdftoppm` + `tesseract` (optional system tools).
+- **📊 Deterministic RAG Evaluator:** Lexical faithfulness, chunk recall/precision APIs — no LLM-as-judge.
+- **🖥️ Local AI Studio UI:**
+  - Health / latency indicators for chat, embed, and rerank endpoints.
+  - Drag-and-drop upload, document multi-select, citation pills, source deep-inspect modal.
+  - Session history tab, regenerate and inline edit actions on messages.
 
 ---
 
@@ -51,12 +53,14 @@
                                       ▼
                       ┌─────────────────────────────────┐
                       │      FastAPI Backend Core       │
+                      │  sessions · regenerate · eval   │
                       └───────┬───────────────┬─────────┘
                               │               │
             ┌─────────────────┴────┐     ┌────┴─────────────────┐
-            │ Document Ingestion   │     │  2-Stage RAG Engine  │
-            │ • SHA-256 Hash       │     │ • Broad Retrieval    │
-            │ • Semantic Chunker   │     │ • Cross-Reranking    │
+            │ Document Ingestion   │     │  Hybrid RAG Engine   │
+            │ • SHA-256 Hash       │     │ • BM25 + Vector RRF  │
+            │ • OCR fallback       │     │ • Cross-Reranking    │
+            │ • Semantic Chunker   │     │ • SQLite chat hist.  │
             └─────────┬────────────┘     └────┬────────────┬────┘
                       │                       │            │
                       ▼                       ▼            ▼
@@ -81,9 +85,14 @@
 - **Node.js:** 18.x or higher (with `npm`)
 - **llama.cpp:** Built with hardware acceleration (CUDA, ROCm, Vulkan, or Metal)
 - **Local GGUF Models:**
-  - 1x Chat / Instruction model (e.g. `Qwen3.5-9B-Instruct`, `Qwen2.5-7B-Instruct`, `Gemma-2-9B-IT`)
-  - 1x Embedding model (e.g. `Qwen3-Embedding-0.6B`, `bge-m3`, `nomic-embed-text`)
-  - 1x Reranker model (e.g. `Qwen3-Reranker-0.6B`, `bge-reranker-large`)
+  - 1× Chat / Instruction model (e.g. `Qwen3.5-9B-Instruct`, `Qwen2.5-7B-Instruct`, `Gemma-2-9B-IT`)
+  - 1× Embedding model (e.g. `Qwen3-Embedding-0.6B`, `bge-m3`, `nomic-embed-text`)
+  - 1× Reranker model (e.g. `Qwen3-Reranker-0.6B`, `bge-reranker-large`) — optional but recommended
+- **OCR (optional, for scanned PDFs):**
+  - `tesseract` (language packs as needed, e.g. `por` + `eng`)
+  - `pdftoppm` from Poppler (`poppler-utils` on Debian/Ubuntu)
+
+  If these tools are missing, text PDFs still work; scanned PDFs return a diagnostic notice instead of crashing.
 
 ---
 
@@ -143,7 +152,7 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-The interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
+Interactive OpenAPI docs: `http://localhost:8000/docs`.
 
 ---
 
@@ -159,62 +168,90 @@ npm install
 npm run dev
 ```
 
-Open your browser at **`http://localhost:5173`**.
+Open **`http://localhost:5173`**.
 
 ---
 
 ## ⚙️ Configuration (`.env`)
 
+Copy `backend/.env.example` to `backend/.env` and adjust as needed.
+
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `LLAMA_CHAT_URL` | `http://127.0.0.1:8080` | URL for the `llama-server` Chat Completions endpoint |
-| `LLAMA_EMBED_URL` | `http://127.0.0.1:8081` | URL for the `llama-server` Embeddings endpoint |
-| `LLAMA_RERANK_URL` | `http://127.0.0.1:8082` | URL for the `llama-server` Reranking endpoint |
-| `CHROMA_PERSIST_DIR` | `./data/chroma` | Local directory for persistent ChromaDB vectors |
-| `UPLOAD_DIR` | `./data/uploads` | Local directory for uploaded files |
-| `CHUNK_SIZE` | `1000` | Target character size per chunk |
-| `CHUNK_OVERLAP` | `100` | Overlap character count between consecutive chunks |
-| `TOP_K_RETRIEVAL` | `24` | Candidate chunks retrieved from ChromaDB in Stage 1 |
-| `TOP_K_RERANK` | `12` | Filtered chunks passed to the LLM prompt in Stage 2 |
-| `MAX_CONTEXT_TOKENS` | `6000` | Maximum token ceiling for prompt context |
-| `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed CORS origins for the API |
-| `MAX_UPLOAD_SIZE_MB`| `50` | Maximum upload size per document |
+| `LLAMA_CHAT_URL` | `http://127.0.0.1:8080` | Chat Completions endpoint |
+| `LLAMA_EMBED_URL` | `http://127.0.0.1:8081` | Embeddings endpoint |
+| `LLAMA_RERANK_URL` | `http://127.0.0.1:8082` | Reranking endpoint |
+| `CHROMA_PERSIST_DIR` | `./data/chroma` | Persistent ChromaDB directory |
+| `UPLOAD_DIR` | `./data/uploads` | Uploaded files directory |
+| `CHUNK_SIZE` | `1000` | Target characters per chunk |
+| `CHUNK_OVERLAP` | `100` | Overlap between consecutive chunks |
+| `TOP_K_RETRIEVAL` | `24` | Candidate pool size before / during hybrid fusion |
+| `TOP_K_RERANK` | `12` | Chunks kept after rerank for the LLM prompt |
+| `MIN_RELEVANCE_SCORE` | `0.05` | Drop near-zero relevance sources |
+| `MAX_CONTEXT_TOKENS` | `6000` | Prompt context token ceiling |
+| `CORS_ORIGINS` | `http://localhost:5173,...` | Comma-separated allowed origins |
+| `MAX_UPLOAD_SIZE_MB` | `50` | Max upload size per document |
 
 ---
 
 ## 📡 API Reference
 
-### `GET /api/health`
-Checks the live connectivity and latency of all three `llama-server` endpoints and returns indexed counts.
+### Core
 
-### `GET /api/documents`
-Lists all indexed documents with metadata (ID, filename, file size, chunk count, pages, hash).
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Connectivity + latency of chat/embed/rerank; indexed counts |
+| `GET` | `/api/documents` | List indexed documents |
+| `POST` | `/api/documents/upload` | Upload & index (SHA-256 dedupe, optional OCR) |
+| `DELETE` | `/api/documents/{doc_id}` | Delete document + vectors (+ BM25 sync) |
+| `POST` | `/api/chat/stream` | Full hybrid RAG pipeline as SSE |
 
-### `POST /api/documents/upload`
-Uploads and indexes a new document (PDF, Markdown, TXT) with SHA-256 deduplication and sanitized filenames.
+### Sessions (conversation persistence)
 
-### `DELETE /api/documents/{doc_id}`
-Deletes a document and clears all corresponding vector embeddings from ChromaDB.
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/sessions` | List sessions (`updated_at` DESC) |
+| `POST` | `/api/sessions` | Create session |
+| `GET` | `/api/sessions/{session_id}` | Session + messages |
+| `PUT` | `/api/sessions/{session_id}` | Update session metadata (e.g. title) |
+| `DELETE` | `/api/sessions/{session_id}` | Delete session and messages |
+| `POST` | `/api/sessions/{session_id}/messages` | Append a message |
 
-### `POST /api/chat/stream`
-Executes the full 2-stage RAG pipeline and returns a Server-Sent Events (SSE) stream:
-- `event: sources` — JSON array of `SourceReference` with similarity and rerank scores.
-- `event: token` — Incremental text token delta generated by the LLM.
-- `event: done` — Signals completion of generation.
-- `event: error` — Emits sanitized error messages.
+### Regenerate
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/chat/regenerate` | Re-run query (optional `session_id` / `message_id` / edited `query`) as SSE |
+
+### Evaluation
+
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/eval/health` | Evaluator service health |
+| `POST` | `/api/eval/rag` | Single-turn deterministic metrics |
+| `POST` | `/api/eval/rag/batch` | Batch evaluation |
+
+### SSE event contract (`/api/chat/stream` and `/api/chat/regenerate`)
+
+- `event: sources` — JSON array of source references (similarity / rerank scores)
+- `event: token` — incremental text delta
+- `event: done` — generation finished
+- `event: error` — sanitized error message
 
 ---
 
 ## 🧪 Testing
 
-Run backend automated unit tests:
+Backend unit/integration suite (mocks llama-server; no GPU contention):
 
 ```bash
 cd backend
-python3 -m pytest tests/test_rag.py -v
+source venv/bin/activate
+# From repo root you can also use: PYTHONPATH=backend pytest backend/tests/ -v
+python3 -m pytest tests/ -v
 ```
 
-Build and validate the frontend:
+Frontend production build:
 
 ```bash
 cd frontend
@@ -225,9 +262,18 @@ npm run build
 
 ## 🛡️ Security & Privacy Notice
 
-- **Zero Data Leakage:** All computation, vector transformations, and inferences run on `127.0.0.1`.
-- **Upload Hardening:** Filenames are sanitized against path traversal attacks (`..`, null bytes, control characters), and non-whitelisted extensions are blocked.
-- **Shielded Error Handling:** Internal stack traces and file system hierarchies are kept on the server logs and never exposed in client API responses.
+- **Zero Data Leakage:** Inference and storage stay on `127.0.0.1` / local disk.
+- **Upload Hardening:** Filenames sanitized against path traversal; non-whitelisted extensions blocked.
+- **Shielded Errors:** Stack traces and filesystem paths stay in server logs, not client responses.
+- **Test Isolation:** Automated tests mock llama endpoints and guard sockets to ports `8080`/`8081`/`8082`.
+
+---
+
+## 🗺️ Roadmap notes
+
+Implemented modular expansion (see `PROJECT.md`): conversation persistence, regenerate/edit, BM25+RRF hybrid search, OCR fallback, deterministic RAG evaluator.
+
+Next polish focus (not yet shipped): mobile sidebar/drawer UX, upload OCR feedback in the UI, lightweight eval panel, richer markdown/code rendering.
 
 ---
 

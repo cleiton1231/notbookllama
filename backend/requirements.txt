@@ -8,3 +8,7 @@ python-multipart>=0.0.9
 chromadb>=0.4.24
 pytest>=8.0.0
 pytest-asyncio>=0.23.5
+
+# OCR fallback for scanned/image-only PDFs is implemented via system CLIs
+# (not Python packages): install `tesseract` and `pdftoppm` (poppler-utils).
+# See README.md → Prerequisites → OCR.
