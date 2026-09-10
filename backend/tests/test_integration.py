@@ -212,3 +212,39 @@ def test_document_parser_pdf_ocr_integration():
         assert len(pages) == 1
         assert pages[0].page_number == 1
         assert "Texto extraido via OCR" in pages[0].text
+        assert pages[0].ocr_used is True
+
+    with patch("app.services.document_parser.extract_pdf_pages_ocr") as mock_ocr:
+        mock_ocr.return_value = [
+            {"page_number": 1, "text": "Texto nativo digital acima do limiar", "ocr_used": False}
+        ]
+        pages = parse_pdf(fake_pdf, "native.pdf")
+        assert pages[0].ocr_used is False
+
+
+def test_parse_document_sets_ocr_used_on_parsed_document():
+    from app.services.document_parser import parse_document
+
+    fake_pdf = b"%PDF-1.4 fake"
+    with patch("app.services.document_parser.extract_pdf_pages_ocr") as mock_ocr:
+        mock_ocr.return_value = [
+            {"page_number": 1, "text": "scan", "ocr_used": True}
+        ]
+        doc = parse_document(fake_pdf, "scan.pdf")
+        assert doc.ocr_used is True
+        assert doc.file_type == "pdf"
+
+
+def test_document_metadata_ocr_used_defaults_false():
+    from app.schemas import DocumentMetadata
+
+    meta = DocumentMetadata(
+        doc_id="abc12345",
+        filename="a.txt",
+        file_type="text",
+        file_size=10,
+        sha256="a" * 64,
+        total_chunks=1,
+    )
+    assert meta.ocr_used is False
+    assert DocumentMetadata(**{**meta.model_dump(), "ocr_used": True}).ocr_used is True

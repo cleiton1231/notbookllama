@@ -192,7 +192,8 @@ async def upload_document(file: UploadFile = File(...)):
         file_size=parsed_doc.file_size,
         sha256=parsed_doc.sha256,
         total_chunks=len(chunks),
-        total_pages=parsed_doc.total_pages
+        total_pages=parsed_doc.total_pages,
+        ocr_used=bool(getattr(parsed_doc, "ocr_used", False)),
     )
 
     await vector_store.add_document(
@@ -208,8 +209,13 @@ async def upload_document(file: UploadFile = File(...)):
     except Exception as e:
         logger.warning(f"Erro ao sincronizar BM25 no upload: {e}")
 
+    if doc_metadata.ocr_used:
+        message = f"Documento '{parsed_doc.filename}' indexado com OCR (PDF escaneado)."
+    else:
+        message = f"Documento '{parsed_doc.filename}' indexado com sucesso!"
+
     return DocumentResponse(
-        message=f"Documento '{parsed_doc.filename}' indexado com sucesso!",
+        message=message,
         document=doc_metadata
     )
 

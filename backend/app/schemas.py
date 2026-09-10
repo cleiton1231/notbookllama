@@ -11,6 +11,7 @@ class DocumentMetadata(BaseModel):
     sha256: str
     total_chunks: int
     total_pages: Optional[int] = None
+    ocr_used: bool = False
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 

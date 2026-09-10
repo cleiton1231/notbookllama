@@ -6,9 +6,10 @@ from pypdf import PdfReader
 
 
 class ParsedPage:
-    def __init__(self, page_number: int, text: str):
+    def __init__(self, page_number: int, text: str, ocr_used: bool = False):
         self.page_number = page_number
         self.text = text
+        self.ocr_used = ocr_used
 
 
 class ParsedDocument:
@@ -19,6 +20,7 @@ class ParsedDocument:
         self.sha256 = sha256
         self.pages = pages
         self.total_pages = len(pages)
+        self.ocr_used = any(getattr(p, "ocr_used", False) for p in pages)
 
 
 import os
@@ -60,7 +62,11 @@ def parse_pdf(content: bytes, filename: str) -> List[ParsedPage]:
     """Extrai texto e número de páginas de um arquivo PDF com fallback OCR para PDFs digitalizados/sem camada de texto."""
     ocr_pages = extract_pdf_pages_ocr(content, min_chars_threshold=50)
     pages = [
-        ParsedPage(page_number=int(p["page_number"]), text=str(p["text"]))
+        ParsedPage(
+            page_number=int(p["page_number"]),
+            text=str(p["text"]),
+            ocr_used=bool(p.get("ocr_used", False)),
+        )
         for p in ocr_pages
         if p.get("text") and str(p["text"]).strip()
     ]
