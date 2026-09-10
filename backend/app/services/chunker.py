@@ -90,6 +90,9 @@ def create_document_chunks(
     global_index = 0
 
     for page in parsed_doc.pages:
+        page_text = (page.text or "").strip()
+        if page_text.startswith("[Aviso:") or page_text.startswith("[Erro:"):
+            continue
         text_chunks = split_text_into_chunks(page.text, chunk_size, chunk_overlap)
         for chunk_text in text_chunks:
             chunk_id = f"{doc_id}_c{global_index}"

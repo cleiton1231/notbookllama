@@ -293,3 +293,23 @@ def test_document_metadata_ocr_used_defaults_false():
     )
     assert meta.ocr_used is False
     assert DocumentMetadata(**{**meta.model_dump(), "ocr_used": True}).ocr_used is True
+    assert "+" in meta.created_at or meta.created_at.endswith("Z")
+
+
+def test_create_document_chunks_skips_diagnostic_pages():
+    from app.services.document_parser import ParsedDocument, ParsedPage
+    from app.services.chunker import create_document_chunks
+
+    doc = ParsedDocument(
+        filename="scan.pdf",
+        file_type="pdf",
+        file_size=10,
+        sha256="a" * 64,
+        pages=[
+            ParsedPage(1, "[Aviso: Página sem camada de texto legível]"),
+            ParsedPage(2, "Conteúdo real extraído com OCR suficiente para indexar."),
+        ],
+    )
+    chunks = create_document_chunks(doc, "doc1")
+    assert len(chunks) >= 1
+    assert all("[Aviso:" not in c.content and "[Erro:" not in c.content for c in chunks)
