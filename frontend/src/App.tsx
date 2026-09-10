@@ -15,6 +15,7 @@ import {
   createSession,
 } from './services/api';
 import { buildEvalTurnPayload, EvalTurnPayload } from './services/evalPayload';
+import { emptyChatMode, isChatReady } from './utils/chatStatus';
 import {
   ArrowUp,
   Square,
@@ -22,6 +23,7 @@ import {
   RotateCcw,
   BookOpen,
   Menu,
+  AlertTriangle,
 } from 'lucide-react';
 import { useSidebarDrawer } from './hooks/useSidebarDrawer';
 
@@ -38,8 +40,13 @@ export const App: React.FC = () => {
   const [useRerank, setUseRerank] = useState(true);
   const [activeSource, setActiveSource] = useState<SourceReference | null>(null);
   const [evalPayload, setEvalPayload] = useState<EvalTurnPayload | null>(null);
-  const { isOpen: sidebarOpen, isDesktop, close: closeSidebar, toggle: toggleSidebar } =
-    useSidebarDrawer();
+  const {
+    isOpen: sidebarOpen,
+    isDesktop,
+    open: openSidebar,
+    close: closeSidebar,
+    toggle: toggleSidebar,
+  } = useSidebarDrawer();
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -499,6 +506,18 @@ export const App: React.FC = () => {
           </div>
         </header>
 
+        {health && !isChatReady(health) && (
+          <div
+            data-testid="engine-offline-banner"
+            className="px-4 md:px-6 py-2.5 bg-amber-950/40 border-b border-amber-800/40 text-amber-100 text-xs flex items-start gap-2"
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              Motor local indisponível (chat/embed). Suba o llama-server nas portas 8080 e 8081.
+            </span>
+          </div>
+        )}
+
         {/* Scrollable Messages Area */}
         <div
           ref={chatContainerRef}
@@ -510,27 +529,46 @@ export const App: React.FC = () => {
               <div className="w-12 h-12 rounded-2xl bg-[#da7756]/15 border border-[#da7756]/30 text-coral-400 flex items-center justify-center mb-6 shadow-sm">
                 <Sparkles className="w-6 h-6" />
               </div>
-              <h1 className="text-2xl font-semibold text-white tracking-tight mb-2">
-                Como posso ajudar com seus documentos?
-              </h1>
-              <p className="text-sm text-zinc-400 max-w-md mb-10 leading-relaxed">
-                Faça perguntas, compare dados ou extraia explicações técnicas diretamente da sua base local.
-              </p>
-
-              {/* Suggestions Grid */}
-              <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-                {suggestions.map((sug, i) => (
+              {emptyChatMode(documents.length) === 'no-docs' ? (
+                <>
+                  <h1 className="text-2xl font-semibold text-white tracking-tight mb-2">
+                    Sua biblioteca ainda está vazia
+                  </h1>
+                  <p className="text-sm text-zinc-400 max-w-md mb-6 leading-relaxed">
+                    Abra o menu lateral e envie um PDF, Markdown ou TXT para indexar na base local.
+                  </p>
                   <button
-                    key={i}
-                    onClick={() => handleSendMessage(sug)}
-                    className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-sm text-zinc-300 hover:text-white transition leading-snug group"
+                    type="button"
+                    onClick={openSidebar}
+                    className="md:hidden px-4 py-2 rounded-xl bg-[#da7756] hover:bg-[#c66545] text-white text-sm font-medium transition"
                   >
-                    <span className="text-zinc-400 group-hover:text-coral-400 transition-colors">
-                      {sug}
-                    </span>
+                    Abrir documentos
                   </button>
-                ))}
-              </div>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-2xl font-semibold text-white tracking-tight mb-2">
+                    Como posso ajudar com seus documentos?
+                  </h1>
+                  <p className="text-sm text-zinc-400 max-w-md mb-10 leading-relaxed">
+                    Faça perguntas, compare dados ou extraia explicações técnicas diretamente da sua base local.
+                  </p>
+
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                    {suggestions.map((sug, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleSendMessage(sug)}
+                        className="p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.08] text-sm text-zinc-300 hover:text-white transition leading-snug group"
+                      >
+                        <span className="text-zinc-400 group-hover:text-coral-400 transition-colors">
+                          {sug}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-white/[0.04]">
