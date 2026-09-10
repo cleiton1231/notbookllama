@@ -8,6 +8,7 @@ import {
   RAGEvalResponse,
 } from '../types';
 import type { EvalTurnPayload } from './evalPayload';
+import { createSseParser } from './sse';
 
 const API_BASE = '/api';
 
@@ -172,45 +173,15 @@ export async function streamChat({
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-    let buffer = '';
+    const parser = createSseParser({ onSources, onToken, onDone, onError });
 
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      let currentEvent = '';
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('event:')) {
-          currentEvent = line.slice(6).trim();
-        } else if (line.startsWith('data:')) {
-          const dataStr = line.slice(5).trim();
-          if (!dataStr) continue;
-
-          try {
-            const data = JSON.parse(dataStr);
-            if (currentEvent === 'sources') {
-              onSources(data.sources || []);
-            } else if (currentEvent === 'token') {
-              onToken(data.token || '');
-            } else if (currentEvent === 'error') {
-              onError(data.error || 'Erro desconhecido');
-            } else if (currentEvent === 'done') {
-              onDone();
-            }
-          } catch (e) {
-            console.error('Erro ao decodificar JSON do evento SSE:', dataStr, e);
-          }
-        }
-      }
+      parser.push(decoder.decode(value, { stream: true }));
     }
 
-    onDone();
+    parser.finish();
   } catch (error: any) {
     if (error.name === 'AbortError') {
       console.log('Stream abortado pelo usuário.');
@@ -282,45 +253,15 @@ export async function streamRegenerate({
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
-    let buffer = '';
+    const parser = createSseParser({ onSources, onToken, onDone, onError });
 
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      let currentEvent = '';
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('event:')) {
-          currentEvent = line.slice(6).trim();
-        } else if (line.startsWith('data:')) {
-          const dataStr = line.slice(5).trim();
-          if (!dataStr) continue;
-
-          try {
-            const data = JSON.parse(dataStr);
-            if (currentEvent === 'sources') {
-              onSources(data.sources || []);
-            } else if (currentEvent === 'token') {
-              onToken(data.token || '');
-            } else if (currentEvent === 'error') {
-              onError(data.error || 'Erro desconhecido');
-            } else if (currentEvent === 'done') {
-              onDone();
-            }
-          } catch (e) {
-            console.error('Erro ao decodificar JSON do evento SSE:', dataStr, e);
-          }
-        }
-      }
+      parser.push(decoder.decode(value, { stream: true }));
     }
 
-    onDone();
+    parser.finish();
   } catch (error: any) {
     if (error.name === 'AbortError') {
       console.log('Stream de regeneração abortado pelo usuário.');
