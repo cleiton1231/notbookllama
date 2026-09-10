@@ -69,7 +69,17 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
             </div>
           ) : (
             <div className="markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  a: ({ href, children, ...props }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                      {children}
+                    </a>
+                  ),
+                }}
+              >
                 {message.content}
               </ReactMarkdown>
               {message.isStreaming && (
