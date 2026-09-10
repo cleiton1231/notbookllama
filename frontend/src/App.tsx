@@ -19,7 +19,9 @@ import {
   Sparkles,
   RotateCcw,
   BookOpen,
+  Menu,
 } from 'lucide-react';
+import { useSidebarDrawer } from './hooks/useSidebarDrawer';
 
 export const App: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentMetadata[]>([]);
@@ -33,6 +35,8 @@ export const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [useRerank, setUseRerank] = useState(true);
   const [activeSource, setActiveSource] = useState<SourceReference | null>(null);
+  const { isOpen: sidebarOpen, isDesktop, close: closeSidebar, toggle: toggleSidebar } =
+    useSidebarDrawer();
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -44,6 +48,15 @@ export const App: React.FC = () => {
     loadHealth();
     loadDocuments();
   }, []);
+
+  useEffect(() => {
+    if (isDesktop) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeSidebar();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isDesktop, closeSidebar]);
 
   const handleScroll = () => {
     if (!chatContainerRef.current) return;
@@ -410,6 +423,16 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#191919] text-[#ececec]">
+      {/* Mobile overlay */}
+      {!isDesktop && sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-20 bg-black/50 md:hidden"
+          onClick={closeSidebar}
+        />
+      )}
+
       {/* Sidebar Lateral */}
       <Sidebar
         documents={documents}
@@ -425,13 +448,24 @@ export const App: React.FC = () => {
         currentSessionId={currentSessionId}
         onSelectSession={handleSelectSession}
         refreshHistoryTrigger={refreshHistoryTrigger}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
       />
 
       {/* Área Principal de Chat */}
       <main className="flex-1 flex flex-col h-full min-w-0 bg-[#191919] relative">
         {/* Top Minimal Bar */}
-        <header className="h-14 px-6 border-b border-white/[0.06] flex items-center justify-between shrink-0 bg-[#191919]/90 backdrop-blur-md z-10">
+        <header className="h-14 px-4 md:px-6 border-b border-white/[0.06] flex items-center justify-between shrink-0 bg-[#191919]/90 backdrop-blur-md z-10">
           <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="md:hidden p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition"
+              title="Abrir menu"
+              aria-label="Abrir menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <span className="text-sm font-medium text-zinc-300">
               {selectedDocIds.length > 0
                 ? `${selectedDocIds.length} documento(s) selecionado(s)`

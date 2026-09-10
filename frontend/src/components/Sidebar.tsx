@@ -13,7 +13,8 @@ import {
   FolderOpen,
   Sparkles,
   MessageSquare,
-  Files
+  Files,
+  X,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +31,8 @@ interface SidebarProps {
   currentSessionId: string | null;
   onSelectSession: (id: string) => void;
   refreshHistoryTrigger?: number;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,6 +49,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentSessionId,
   onSelectSession,
   refreshHistoryTrigger = 0,
+  isOpen = true,
+  onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<'documents' | 'history'>('documents');
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,8 +80,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isAllSelected = documents.length > 0 && selectedDocIds.length === documents.length;
 
+  const handleNewChat = () => {
+    onNewChat();
+    onClose?.();
+  };
+
+  const handleSelectSession = (id: string) => {
+    onSelectSession(id);
+    onClose?.();
+  };
+
   return (
-    <aside className="w-72 h-full bg-[#141414] border-r border-white/[0.08] flex flex-col shrink-0 select-none text-zinc-300">
+    <aside
+      className={`fixed inset-y-0 left-0 z-30 w-72 h-full bg-[#141414] border-r border-white/[0.08] flex flex-col shrink-0 select-none text-zinc-300 transform transition-transform duration-200 ease-out md:relative md:translate-x-0 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
       {/* App Header & New Chat */}
       <div className="p-4 border-b border-white/[0.06] space-y-3">
         <div className="flex items-center justify-between">
@@ -86,14 +105,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <span className="font-semibold text-white tracking-tight text-base">DocMind</span>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-400">
-            Local RAG
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-zinc-400">
+              Local RAG
+            </span>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="md:hidden p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5"
+                title="Fechar menu"
+                aria-label="Fechar menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* New Chat Button */}
         <button
-          onClick={onNewChat}
+          onClick={handleNewChat}
           className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white font-medium text-xs transition border border-white/[0.08]"
         >
           <Plus className="w-4 h-4 text-coral-400" />
@@ -139,8 +171,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <SessionHistory
             currentSessionId={currentSessionId}
-            onSelectSession={onSelectSession}
-            onNewChat={onNewChat}
+            onSelectSession={handleSelectSession}
+            onNewChat={handleNewChat}
             refreshTrigger={refreshHistoryTrigger}
           />
         </div>
