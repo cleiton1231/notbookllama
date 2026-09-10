@@ -16,6 +16,11 @@ from app.schemas import DocumentChunk, DocumentMetadata
 logger = logging.getLogger("docmind.vector_store")
 
 
+def _chroma_metadata(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Chroma rejects None metadata values; omit those keys."""
+    return {k: v for k, v in data.items() if v is not None}
+
+
 class VectorStore:
     _instance: Optional["VectorStore"] = None
     _lock = asyncio.Lock()
@@ -77,7 +82,7 @@ class VectorStore:
 
         async with self._lock:
             # 1. Registrar metadados do documento
-            doc_dict = metadata.model_dump()
+            doc_dict = _chroma_metadata(metadata.model_dump())
             self.doc_collection.upsert(
                 ids=[metadata.doc_id],
                 metadatas=[doc_dict],
@@ -174,6 +179,42 @@ class VectorStore:
             except Exception as e:
                 logger.error(f"Erro ao listar documentos: {e}")
                 return []
+
+    async def get_all_chunks(self) -> List[DocumentChunk]:
+        """Return every stored chunk for BM25 rehydration after process restart."""
+        async with self._lock:
+            if self.chunk_collection is None:
+                return []
+            try:
+                results = self.chunk_collection.get(include=["documents", "metadatas"])
+            except Exception as e:
+                logger.error(f"Erro ao listar chunks para BM25: {e}")
+                return []
+
+            chunks: List[DocumentChunk] = []
+            if not results or not results.get("ids"):
+                return chunks
+
+            ids = results["ids"]
+            docs = results.get("documents") or [""] * len(ids)
+            metas = results.get("metadatas") or [{}] * len(ids)
+            for chunk_id, content, meta in zip(ids, docs, metas):
+                meta = meta or {}
+                page_num = meta.get("page_number")
+                if page_num == -1:
+                    page_num = None
+                chunks.append(
+                    DocumentChunk(
+                        chunk_id=chunk_id,
+                        doc_id=meta.get("doc_id", ""),
+                        filename=meta.get("filename", ""),
+                        chunk_index=meta.get("chunk_index", 0),
+                        page_number=page_num,
+                        content=content or "",
+                        char_count=meta.get("char_count", len(content or "")),
+                    )
+                )
+            return chunks
 
     async def delete_document(self, doc_id: str) -> bool:
         """Exclui documento e todos os seus chunks associados."""
