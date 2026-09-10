@@ -47,7 +47,8 @@ async def regenerate_chat_stream(request: RegenerateRequest):
         doc_ids=request.doc_ids,
         temperature=request.temperature,
         use_rerank=request.use_rerank,
-        top_k=request.top_k
+        top_k=request.top_k,
+        session_id=request.session_id,
     )
 
     logger.info(

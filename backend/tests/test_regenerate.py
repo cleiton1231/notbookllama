@@ -116,6 +116,24 @@ def test_regenerate_endpoint_with_message_and_history(client):
         assert captured_request.top_k == 3
 
 
+def test_regenerate_forwards_session_id(client):
+    captured_request = None
+
+    async def mock_stream_rag(req: ChatRequest):
+        nonlocal captured_request
+        captured_request = req
+        yield "event: done\ndata: {}\n\n"
+
+    with patch("app.routers.regenerate.rag_engine.stream_rag_response", side_effect=mock_stream_rag):
+        response = client.post("/api/chat/regenerate", json={
+            "query": "Regenerar",
+            "session_id": "sess_persist",
+        })
+    assert response.status_code == 200
+    assert captured_request is not None
+    assert captured_request.session_id == "sess_persist"
+
+
 def test_regenerate_endpoint_empty_query_and_message(client):
     # Missing both query and message
     payload = {
