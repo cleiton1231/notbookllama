@@ -1,5 +1,7 @@
 import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import { Message, SourceReference } from '../types';
 import { BookOpen } from 'lucide-react';
 import { ChatMessageActions } from './ChatMessageActions';
@@ -67,7 +69,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = memo(({
             </div>
           ) : (
             <div className="markdown-content">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                {message.content}
+              </ReactMarkdown>
               {message.isStreaming && (
                 <span className="inline-block w-1.5 h-4 ml-1 bg-coral-400 animate-pulse align-middle rounded-sm" />
               )}
