@@ -37,3 +37,6 @@ yarn-error.log*
 .coverage
 *.coverage
 .agents/
+
+# Git worktrees
+.worktrees/
