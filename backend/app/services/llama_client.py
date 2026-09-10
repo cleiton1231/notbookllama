@@ -8,6 +8,11 @@ from app.schemas import EndpointStatus
 logger = logging.getLogger("docmind.llama_client")
 
 
+class LlamaStreamError(Exception):
+    """Raised when the local chat llama-server stream fails."""
+    pass
+
+
 class LlamaClient:
     def __init__(self):
         # Clientes HTTP reutilizáveis com timeouts dedicados
@@ -143,8 +148,8 @@ class LlamaClient:
                             except json.JSONDecodeError:
                                 continue
             except Exception as e:
-                logger.error(f"Erro no streaming de chat com llama-server ({url}): {e}")
-                yield f"\n\n[Erro na comunicação com o modelo local: {str(e)}]"
+                logger.error(f"Erro no streaming de chat com llama-server ({url}): {e}", exc_info=True)
+                raise LlamaStreamError("Falha na comunicação com o modelo local.") from e
 
     async def check_endpoint(self, name: str, url: str) -> EndpointStatus:
         """Verifica a saúde de um endpoint individual com timeout de 2 segundos e calcula latência."""

@@ -138,6 +138,51 @@ async def test_rag_stream_session_persistence(temp_db):
 
 
 @pytest.mark.asyncio
+async def test_llama_stream_failure_emits_error_without_leaking_or_persisting(temp_db):
+    from app.services.llama_client import LlamaStreamError
+
+    engine = RAGEngine()
+    engine.llama.get_embeddings = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+    engine.llama.rerank = AsyncMock(return_value=None)
+
+    async def failing_stream(msgs, temperature=0.3):
+        raise LlamaStreamError("secret-path /tmp/x llama down at http://127.0.0.1:8080")
+        yield "unreachable"
+
+    engine.llama.stream_chat = failing_stream
+
+    dummy_chunk = DocumentChunk(
+        chunk_id="chunk_err_1",
+        doc_id="doc_err_1",
+        filename="nota.txt",
+        chunk_index=0,
+        content="texto",
+        char_count=5,
+    )
+    engine.vectors.search_chunks = AsyncMock(return_value=[(dummy_chunk, 0.9)])
+
+    session_id = "test-session-llama-fail"
+    request = ChatRequest(message="oi", session_id=session_id, use_rerank=False)
+
+    events = []
+    async for event in engine.stream_rag_response(request):
+        events.append(event)
+
+    joined = "".join(events)
+    assert "event: error" in joined
+    assert "Falha na comunicação com o modelo local." in joined
+    assert "secret-path" not in joined
+    assert "/tmp/x" not in joined
+    assert "8080" not in joined
+    assert "[Erro na comunicação" not in joined
+
+    session_data = get_session(session_id)
+    assert session_data is not None
+    assistant_msgs = [m for m in session_data["messages"] if m["role"] == "assistant"]
+    assert assistant_msgs == []
+
+
+@pytest.mark.asyncio
 async def test_rag_stream_empty_candidates_session_persistence(temp_db):
     """Verifies that empty retrieval results are persisted in session history gracefully."""
     engine = RAGEngine()

@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator, List, Dict, Any, Tuple
 from app.config import settings
 from app.schemas import ChatRequest, SourceReference, DocumentChunk
-from app.services.llama_client import llama_client
+from app.services.llama_client import llama_client, LlamaStreamError
 from app.services.vector_store import vector_store
 
 logger = logging.getLogger("docmind.rag_engine")
@@ -186,9 +186,15 @@ class RAGEngine:
             # 8. Finalização do SSE
             yield "event: done\ndata: {}\n\n"
 
+        except LlamaStreamError:
+            logger.error("Falha no stream do modelo local", exc_info=True)
+            yield "event: error\ndata: " + json.dumps(
+                {"error": "Falha na comunicação com o modelo local."},
+                ensure_ascii=False,
+            ) + "\n\n"
         except Exception as e:
             logger.error(f"Erro no pipeline RAG: {e}", exc_info=True)
-            yield "event: error\ndata: " + json.dumps({"error": f"Erro interno no processamento RAG: {str(e)}"}, ensure_ascii=False) + "\n\n"
+            yield "event: error\ndata: " + json.dumps({"error": "Erro interno no processamento RAG."}, ensure_ascii=False) + "\n\n"
 
 
 rag_engine = RAGEngine()
