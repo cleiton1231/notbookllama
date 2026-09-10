@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class DocumentMetadata(BaseModel):
@@ -12,7 +12,7 @@ class DocumentMetadata(BaseModel):
     total_chunks: int
     total_pages: Optional[int] = None
     ocr_used: bool = False
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class DocumentChunk(BaseModel):
