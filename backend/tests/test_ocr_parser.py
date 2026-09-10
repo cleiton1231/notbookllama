@@ -303,3 +303,19 @@ class TestOCRParser:
             result = _run_ocr_on_images([img1], lang="por+eng")
             assert "Fallback English text result" in result
             assert len(calls) == 2  # First with lang, second fallback without
+
+    def test_extract_pdf_pages_ocr_continues_when_one_page_extract_text_raises(self, tmp_path):
+        pdf_file = tmp_path / "partial.pdf"
+        pdf_file.write_bytes(create_sample_pdf())
+
+        with patch("app.services.ocr_parser.PdfReader") as mock_reader:
+            bad = MagicMock()
+            bad.extract_text.side_effect = ValueError("fonte corrompida")
+            good = MagicMock()
+            good.extract_text.return_value = "Pagina boa com texto digital suficiente para passar do limiar minimo."
+            mock_reader.return_value.pages = [bad, good]
+
+            pages = extract_pdf_pages_ocr(pdf_file, min_chars_threshold=20)
+            assert len(pages) == 2
+            assert "Pagina boa" in str(pages[1]["text"])
+            assert pages[1]["ocr_used"] is False

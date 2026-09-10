@@ -282,7 +282,11 @@ def extract_pdf_pages_ocr(
 
         for idx, page in enumerate(reader.pages):
             page_num = idx + 1
-            digital_text = (page.extract_text() or "").strip()
+            try:
+                digital_text = (page.extract_text() or "").strip()
+            except Exception as e:
+                logger.warning(f"Falha ao extrair texto digital da página {page_num}: {e}")
+                digital_text = ""
 
             if len(digital_text) >= min_chars_threshold:
                 results.append({
